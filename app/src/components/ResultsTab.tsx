@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { parseRunJson } from '../lib/parseRun';
 import { download } from '../lib/storage';
 import { acc, fmtNum, fmtPct, fmtUsd, HIGH_CONF, mean, percentile, runCost, summarize, toCsv, type ModelSummary } from '../lib/summary';
 import type { CaseResult, Run } from '../lib/types';
@@ -9,25 +10,6 @@ interface Props {
   setActiveId: (id: string) => void;
   deleteRun: (id: string) => void;
   importRuns: (runs: Run[]) => void;
-}
-
-/** Accept a single Run (SPA export or `npm run bench` output) or an array of them. */
-export function parseRunJson(text: string): Run[] {
-  const data = JSON.parse(text);
-  const list = Array.isArray(data) ? data : [data];
-  for (const r of list) {
-    if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !Array.isArray(r.results) || !r.config || !Array.isArray(r.config.models))
-      throw new Error('Not a run JSON (expected id, config.models and results).');
-    if (r.config.temperature != null || r.results.some((x: { primitive?: string; skipped?: boolean }) => !x.primitive))
-      throw new Error('This is a chat-completions run. Only Decisions API runs can be imported.');
-  }
-  return list.map((r) => ({
-    ...r,
-    status: r.status === 'running' ? 'cancelled' : r.status,
-    categoryNames: r.categoryNames ?? {},
-    config: { ...r.config, categories: r.config.categories ?? [...new Set(r.results.map((x: { categoryId: string }) => x.categoryId))] },
-    total: r.total ?? r.results.length,
-  }));
 }
 
 function ImportButton({ onImport }: { onImport: (runs: Run[]) => void }) {
@@ -52,7 +34,7 @@ function ImportButton({ onImport }: { onImport: (runs: Run[]) => void }) {
   );
 }
 
-type Filter = { model?: string; categoryId?: string; caseKey?: string; title: string };
+export type Filter = { model?: string; categoryId?: string; caseKey?: string; title: string };
 const caseKey = (r: CaseResult) => `${r.categoryId}/${r.caseId}`;
 
 export function ResultsTab({ runs, activeId, setActiveId, deleteRun, importRuns }: Props) {
@@ -128,7 +110,7 @@ function sortValue(s: ModelSummary, k: SortKey): number | string {
   }
 }
 
-function ModelTable({ run, onCell }: { run: Run; onCell: (f: Filter) => void }) {
+export function ModelTable({ run, onCell }: { run: Run; onCell: (f: Filter) => void }) {
   const [sort, setSort] = useState<{ k: SortKey; desc: boolean }>({ k: 'overall', desc: true });
   const ascByDefault = (k: SortKey) => ['model', 'brier', 'confbad', 'cost', 'cpc', 'latency', 'p95', 'errors'].includes(k);
   const rows = useMemo(() => {
@@ -205,7 +187,7 @@ function ModelTable({ run, onCell }: { run: Run; onCell: (f: Filter) => void }) 
   );
 }
 
-function CaseMatrix({ run, onCell }: { run: Run; onCell: (f: Filter) => void }) {
+export function CaseMatrix({ run, onCell }: { run: Run; onCell: (f: Filter) => void }) {
   const [onlyFailing, setOnlyFailing] = useState(true);
   const { models, rows } = useMemo(() => {
     const models = [...new Set(run.results.map((r) => r.model))];
@@ -262,7 +244,7 @@ function CaseMatrix({ run, onCell }: { run: Run; onCell: (f: Filter) => void }) 
   );
 }
 
-function DrillDown({ run, filter, onClose }: { run: Run; filter: Filter; onClose: () => void }) {
+export function DrillDown({ run, filter, onClose }: { run: Run; filter: Filter; onClose: () => void }) {
   const [failedOnly, setFailedOnly] = useState(false);
   const items = run.results
     .filter((r) => (!filter.model || r.model === filter.model) && (!filter.categoryId || r.categoryId === filter.categoryId) && (!filter.caseKey || caseKey(r) === filter.caseKey))

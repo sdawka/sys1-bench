@@ -12,6 +12,7 @@
     "bench": "tsx scripts/bench.ts",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json",
     "csv": "tsx scripts/to-csv.ts",
+    "publish-results": "tsx scripts/publish-results.ts",
     "backfill": "tsx scripts/backfill-meta.ts"
   },
   "dependencies": {

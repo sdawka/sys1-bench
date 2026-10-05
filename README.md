@@ -83,3 +83,15 @@ It checks required fields, the `decision` block, difficulty values, and that `ex
 2. Optionally add a top-level `"domain": "finance"`. The Dataset tab shows it as a badge and falls back to `general`.
 3. Run `node data/validate.mjs` and `cd app && npm test`.
 4. Restart `npm run dev`. The app picks up every file in the folder, so no code changes are needed.
+
+## GitHub Pages
+
+`.github/workflows/pages.yml` deploys a results-only page (model and category checkboxes, sortable columns, drill-down) on every push to `main` that touches `app/`, `data/` or the workflow. It shows `app/public/results/latest.json`. To update it after a bench run:
+
+```bash
+cd app
+npm run publish-results     # copies the newest results/*.json to public/results/latest.json (or pass a path)
+git add public/results/latest.json && git commit -m "Publish latest results" && git push
+```
+
+One-time setup: repo Settings → Pages → Source: **GitHub Actions**.

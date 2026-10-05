@@ -199,3 +199,15 @@ table.data tr.selected { background: color-mix(in srgb, var(--accent) 12%, trans
 
 .data.probs { width: auto; margin: 4px 0; }
 .data.probs td, .data.probs th { padding: 2px 10px; }
+
+/* Report charts: one series, accent hue, theme tokens only */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 12px; }
+.chart { margin: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.chart svg { width: 100%; height: auto; display: block; margin-top: 6px; }
+.chart .ct { fill: var(--text); font-size: 12px; }
+.chart .ct.muted { fill: var(--muted); }
+.chart .ct.strong { font-weight: 600; }
+.chart .cbar { fill: var(--accent); }
+.chart .cdot { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+.chart .cgrid { stroke: var(--muted); opacity: .5; stroke-width: 1; }
+.chart g:hover .cbar, .chart g:hover .cdot { opacity: 0.8; }
