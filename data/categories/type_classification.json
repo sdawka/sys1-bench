@@ -1,0 +1,228 @@
+{
+  "id": "type_classification",
+  "name": "Type Classification",
+  "description": "Given a free-text description of something in a Bropilot or Protopilot project, pick the single Bropilot node kind (of 28) that it should become. Wrong kinds put nodes in the wrong space and the wrong edge neighbourhood, so near-miss pairs like usecase vs capability, behaviour vs constraint and term vs entity matter.",
+  "system_prompt": "You classify descriptions into Bropilot knowledge-graph node kinds. The 28 kinds and their definitions are:\n- name: What the system is called.\n- purpose: The core mission, why it exists.\n- capability: A high-level thing the system can do.\n- persona: A type of user or role.\n- requirement: A must-have piece of functionality or need.\n- usecase: Something a user accomplishes, and when it shows up.\n- constraint: A hard limitation or invariant the system must always honour.\n- goal: Value the system aims to deliver, above and beyond.\n- hypothesis: A belief about value yet to be validated.\n- assumption: Something taken to be true (until proven otherwise).\n- term: A word in the shared language, defined once.\n- entity: A domain object or model.\n- relationship: How two entities relate.\n- behaviour: A business rule governing how the system behaves.\n- event: Something notable that happens in the system.\n- state: Data tracked over time.\n- flow: A step-by-step journey through the domain.\n- screen: A UI view or page.\n- module: A logical grouping of code.\n- component: A reusable UI piece.\n- interface: A contract or type.\n- api: A backend endpoint.\n- logic: An algorithm or non-trivial computation.\n- repository: Where code or data lives.\n- external: A third-party dependency (external service).\n- tests: A testing strategy or suite.\n- observability: Logging, metrics or monitoring.\n- design: A visual or UX decision.\nChoose the single kind whose definition best fits what the description IS, not merely the words it mentions (a description that mentions code may still be a domain term or a requirement). Use exactly one kind id from the list as the decision. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "name",
+      "purpose",
+      "capability",
+      "persona",
+      "requirement",
+      "usecase",
+      "constraint",
+      "goal",
+      "hypothesis",
+      "assumption",
+      "term",
+      "entity",
+      "relationship",
+      "behaviour",
+      "event",
+      "state",
+      "flow",
+      "screen",
+      "module",
+      "component",
+      "interface",
+      "api",
+      "logic",
+      "repository",
+      "external",
+      "tests",
+      "observability",
+      "design"
+    ]
+  },
+  "decision": {
+    "primitive": "choice",
+    "instructions": "Which Bropilot knowledge-graph node kind is this description? Choose the single kind whose definition best fits what the description IS, not merely the words it mentions (a description that mentions code may still be a domain term or a requirement).",
+    "criteria": {
+      "name": "What the system is called.",
+      "purpose": "The core mission, why it exists.",
+      "capability": "A high-level thing the system can do.",
+      "persona": "A type of user or role.",
+      "requirement": "A must-have piece of functionality or need.",
+      "usecase": "Something a user accomplishes, and when it shows up.",
+      "constraint": "A hard limitation or invariant the system must always honour.",
+      "goal": "Value the system aims to deliver, above and beyond.",
+      "hypothesis": "A belief about value yet to be validated.",
+      "assumption": "Something taken to be true (until proven otherwise).",
+      "term": "A word in the shared language, defined once.",
+      "entity": "A domain object or model.",
+      "relationship": "How two entities relate.",
+      "behaviour": "A business rule governing how the system behaves.",
+      "event": "Something notable that happens in the system.",
+      "state": "Data tracked over time.",
+      "flow": "A step-by-step journey through the domain.",
+      "screen": "A UI view or page.",
+      "module": "A logical grouping of code.",
+      "component": "A reusable UI piece.",
+      "interface": "A contract or type.",
+      "api": "A backend endpoint.",
+      "logic": "An algorithm or non-trivial computation.",
+      "repository": "Where code or data lives.",
+      "external": "A third-party dependency (external service).",
+      "tests": "A testing strategy or suite.",
+      "observability": "Logging, metrics or monitoring.",
+      "design": "A visual or UX decision."
+    }
+  },
+  "cases": [
+    {
+      "id": "tc_01",
+      "title": "Field sales rep",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "persona"
+      ],
+      "input": "Description: \"Field sales rep. Visits six to eight clients a day, works mostly from a phone in the car, often with patchy mobile signal, and has no time for data entry between meetings.\"",
+      "expected": "persona",
+      "rationale": "A type of user with role/context. Weak models may pick usecase because of the situational details."
+    },
+    {
+      "id": "tc_02",
+      "title": "Lobby meeting prep",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "usecase",
+        "near-miss"
+      ],
+      "input": "Description: \"A rep is waiting in a client's lobby five minutes before a meeting and opens the app to pull up the last three interactions with that client.\"",
+      "expected": "usecase",
+      "rationale": "Something a user accomplishes plus the moment it arises. It is not a flow (no step list), not a persona, and not a capability (it is not a system-level ability)."
+    },
+    {
+      "id": "tc_03",
+      "title": "Proposal feature artifacts (templated)",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "templated",
+        "capability",
+        "screen",
+        "api",
+        "entity"
+      ],
+      "input": "Description: \"{{thing}}\"",
+      "rationale": "Each variant maps to exactly one kind: a high-level thing the system can do is a capability; a UI view or page is a screen; a backend endpoint is an api; a domain object is an entity. Weak models pick logic or requirement for the capability variant.",
+      "vars": {
+        "thing": {
+          "type": "choice",
+          "options": [
+            "The system can generate a draft proposal PDF from the line items of a deal.",
+            "The Deals page: a full-screen view that lists every open deal with filters for owner and stage.",
+            "POST /api/deals/:id/proposal, a backend endpoint that returns a generated proposal PDF.",
+            "Deal: a domain object with an owner, a stage, a close date and a list of line items."
+          ]
+        }
+      },
+      "expected_expr": "vars.thing.startsWith('The system can') ? 'capability' : vars.thing.startsWith('The Deals page') ? 'screen' : vars.thing.startsWith('POST ') ? 'api' : 'entity'"
+    },
+    {
+      "id": "tc_04",
+      "title": "EU data residency",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "constraint"
+      ],
+      "input": "Description: \"Customer financial records must never leave the EU region. Every datastore, queue and API in the system has to honour this, no exceptions.\"",
+      "expected": "constraint",
+      "rationale": "A hard invariant that must always hold. Not a requirement, which is a must-have function or need."
+    },
+    {
+      "id": "tc_05",
+      "title": "Late fee rule",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "behaviour",
+        "near-miss"
+      ],
+      "input": "Description: \"Business rule agreed with finance: an invoice more than 30 days past its due date is treated as delinquent, and a customer with any delinquent invoice is placed on credit hold until their balance is paid.\"",
+      "expected": "behaviour",
+      "rationale": "It is a business rule governing how the system behaves, which is exactly the behaviour definition. It is not logic, because there is no algorithm or non-trivial computation (only a date threshold). It is not a requirement, because it states a domain rule rather than a must-have piece of functionality or need. It is not a constraint, because it is a conditional rule, not an invariant that must always hold everywhere."
+    },
+    {
+      "id": "tc_06",
+      "title": "Cost estimate hypothesis",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "hypothesis",
+        "near-miss"
+      ],
+      "input": "Description: \"We believe that showing a cost estimate before checkout will cut cart abandonment. We will know we are right when abandonment drops by at least 10% over four weeks of traffic.\"",
+      "expected": "hypothesis",
+      "rationale": "It has a belief plus a validation condition, which defines a hypothesis. A plain assumption has no validation criterion."
+    },
+    {
+      "id": "tc_07",
+      "title": "Billing artifacts (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "templated",
+        "implementation"
+      ],
+      "vars": {
+        "thing": {
+          "type": "choice",
+          "options": [
+            "a GitHub repo that holds all the billing code (github.com/acme/billing)",
+            "Stripe, the third-party payment processor the system calls over HTTPS",
+            "the Vitest suite that covers invoice rounding and tax edge cases",
+            "Grafana dashboards and alerts that track payment failure rates"
+          ]
+        }
+      },
+      "input": "Description: \"{{thing}}\"",
+      "expected_expr": "({'a GitHub repo that holds all the billing code (github.com/acme/billing)':'repository','Stripe, the third-party payment processor the system calls over HTTPS':'external','the Vitest suite that covers invoice rounding and tax edge cases':'tests','Grafana dashboards and alerts that track payment failure rates':'observability'})[vars.thing]",
+      "rationale": "Each phrase maps to exactly one crosscutting implementation kind: repository, external service, tests, observability."
+    },
+    {
+      "id": "tc_08",
+      "title": "Glossary entry that mentions code",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "term",
+        "distractor"
+      ],
+      "input": "Description: \"Glossary entry: 'Hot lead'. A prospect who has opened two or more proposals in the last seven days. Also known as: warm prospect. Computed today by isHotLead() in src/lib/scoring.ts, but this entry only defines what the words mean for sales and finance.\"",
+      "expected": "term",
+      "rationale": "A word defined once with synonyms. The code reference is a distractor; the entry defines vocabulary, not the logic, module or entity."
+    },
+    {
+      "id": "tc_09",
+      "title": "Date range dropdown",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "component",
+        "near-miss"
+      ],
+      "input": "Description: \"A reusable dropdown for picking a date range. It is used on both the Reports page and the Billing page and lives in src/components/DateRange.vue.\"",
+      "expected": "component",
+      "rationale": "A reusable UI piece. It appears on pages but is not itself a screen; the path distractor should not push the model to module."
+    },
+    {
+      "id": "tc_10",
+      "title": "Unverified intro assumption",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "assumption",
+        "negation"
+      ],
+      "input": "Description: \"Nobody has checked whether testers actually read the intro screen before starting a Prototype test. For now we proceed as if they do.\"",
+      "expected": "assumption",
+      "rationale": "Taken as true until proven otherwise, with no stated validation criterion. Not a hypothesis, which would define how to know it is right, and not a requirement despite the planning tone."
+    }
+  ]
+}

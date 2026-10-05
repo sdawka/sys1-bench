@@ -1,0 +1,243 @@
+{
+  "id": "priority_triage",
+  "name": "Priority Triage",
+  "description": "Given a bug report, feature request, or tester feedback from a Protopilot user test or Bropilot workflow, assign a priority level (P0–P3). Priority determines when the issue is addressed: P0 blocks releases, P1 blocks core workflows, P2 has workarounds, P3 is polish. This matters for product velocity: misclassifying a P0 as P2 can ship broken products; misclassifying a P3 as P1 wastes engineering time.",
+  "system_prompt": "You are a product triage expert. Classify a reported issue using this rubric: P0 = data loss, security vulnerability, or total outage (product unusable); P1 = core user workflow blocked with no workaround; P2 = core workflow degraded but user has a workaround; P3 = cosmetic, edge case, or nice-to-have feature. Respond with ONLY a JSON object: {\"decision\": \"P0\" | \"P1\" | \"P2\" | \"P3\", \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "P0",
+      "P1",
+      "P2",
+      "P3"
+    ]
+  },
+  "decision": {
+    "primitive": "score",
+    "instructions": "How severe is the reported product issue? Rate it on the triage scale from least severe (P3) to most severe (P0).",
+    "criteria": [
+      "P3: Cosmetic issue, edge case, or nice-to-have feature request.",
+      "P2: Core workflow degraded, but the user has a workaround.",
+      "P1: Core user workflow blocked with no workaround.",
+      "P0: Data loss, security vulnerability, or total outage (product unusable)."
+    ],
+    "level_values": [
+      "P3",
+      "P2",
+      "P1",
+      "P0"
+    ]
+  },
+  "cases": [
+    {
+      "id": "pt_01",
+      "title": "Data loss bug",
+      "difficulty": "easy",
+      "tags": [
+        "P0",
+        "data-loss"
+      ],
+      "input": "Bug report: 'When exporting a Bropilot graph to JSON, all edges are lost. The exported file contains only nodes. Users who export and re-import their graphs lose all relationships.'",
+      "expected": "P0",
+      "rationale": "Data loss is an explicit P0 criterion. This bug causes permanent loss of graph structure. It blocks any user workflow that relies on round-tripping."
+    },
+    {
+      "id": "pt_02",
+      "title": "Core workflow blocked",
+      "difficulty": "easy",
+      "tags": [
+        "P1",
+        "blocked-flow"
+      ],
+      "input": "Bug report from Protopilot tester: 'I cannot publish a prototype test. The Publish button is missing from the UI. I have no way to share my prototype with external testers.'",
+      "expected": "P1",
+      "rationale": "Publishing is the core Protopilot workflow. No button = core flow blocked with no workaround. This is P1."
+    },
+    {
+      "id": "pt_03",
+      "title": "Degraded with workaround",
+      "difficulty": "easy",
+      "tags": [
+        "P2",
+        "workaround"
+      ],
+      "input": "Bug report: 'Search in Bropilot is slow (5 seconds for a 1000-node graph). Workaround: Users can filter by node kind or space before searching, reducing the search space.'",
+      "expected": "P2",
+      "rationale": "Search is slower than ideal, but users can filter first to speed it up. The core workflow (find nodes) is not blocked, just degraded. P2."
+    },
+    {
+      "id": "pt_04",
+      "title": "Cosmetic issue",
+      "difficulty": "easy",
+      "tags": [
+        "P3",
+        "cosmetic"
+      ],
+      "input": "Feature request: 'The Bropilot graph visualization uses a default color palette. Could we add a dark-mode theme option?'",
+      "expected": "P3",
+      "rationale": "Dark mode is a nice-to-have, not a blocker. The graph is fully functional in light mode. P3."
+    },
+    {
+      "id": "pt_05",
+      "title": "API key leaked via public share link",
+      "difficulty": "medium",
+      "tags": [
+        "P0",
+        "security"
+      ],
+      "input": "Bug report: 'When a user creates a public share link for a Protopilot study, the downloadable study JSON behind that link includes the owner's OpenRouter API key in plaintext. Anyone who has the link (including testers and anyone they forward it to) can read the key and make paid API calls on the owner's account. We confirmed this on three existing public links.'",
+      "expected": "P0",
+      "rationale": "A secret credential is exposed to anyone with a public link, with no special access required. That is a security vulnerability, which the rubric places at P0. Weak models downgrade it because the app itself still works."
+    },
+    {
+      "id": "pt_06",
+      "title": "Cosmetic overlap in large graphs",
+      "difficulty": "edge",
+      "tags": [
+        "P3",
+        "cosmetic",
+        "edge-case"
+      ],
+      "input": "Bug report: 'When a Bropilot graph contains more than 500 nodes, the force-directed layout occasionally draws node labels on top of each other. This does not affect functionality: every node can still be selected, edited and linked, and nothing is lost.'",
+      "expected": "P3",
+      "rationale": "Overlapping labels are purely visual and the report states no function is affected. No workflow is blocked or degraded, so it is cosmetic: P3. Weak models pick P2 by inventing a readability impact the report rules out."
+    },
+    {
+      "id": "pt_07",
+      "title": "Severity depends on affected workflow",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "workflow-dependent"
+      ],
+      "vars": {
+        "workflow": {
+          "type": "choice",
+          "options": [
+            "Search returns no results in Firefox.",
+            "Exporting graphs fails silently in Firefox.",
+            "Real-time collaboration updates do not sync in Firefox.",
+            "Graph node colors are slightly wrong in Firefox."
+          ]
+        }
+      },
+      "input": "Bug report: 'A feature does not work in Firefox. It works fine in Chrome. Workaround: users can switch to Chrome and complete the task there. {{workflow}}'",
+      "expected_expr": "vars.workflow.indexOf('colors') >= 0 ? 'P3' : 'P2'",
+      "rationale": "The report gives a working workaround (switch to Chrome), so failures in core workflows (search, export, collaboration) are degraded-with-workaround: P2, not P1. Slightly wrong node colours are cosmetic: P3. Weak models ignore the stated workaround and pick P1 for core features."
+    },
+    {
+      "id": "pt_08",
+      "title": "Severity anchored to rubric clause (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "rubric-anchored",
+        "protopilot"
+      ],
+      "vars": {
+        "outcome": {
+          "type": "choice",
+          "options": [
+            "the prototype deleted every response I had already recorded in this study, and they cannot be recovered",
+            "the Start test button does nothing, and there is no other way to begin the test",
+            "the Next button sometimes does nothing, but pressing Enter advances the step, so I can still finish the test",
+            "the progress bar is a slightly different shade of blue from the rest of the page; everything works"
+          ]
+        }
+      },
+      "input": "Protopilot tester feedback: 'Something went wrong in the prototype: {{outcome}}.'",
+      "expected_expr": "vars.outcome.indexOf('cannot be recovered') >= 0 ? 'P0' : vars.outcome.indexOf('no other way') >= 0 ? 'P1' : vars.outcome.indexOf('pressing Enter') >= 0 ? 'P2' : 'P3'",
+      "rationale": "Each variant maps to exactly one rubric clause: unrecoverable deletion of recorded responses is data loss (P0); a dead Start button with no alternative blocks the core flow with no workaround (P1); an unreliable Next button with a keyboard workaround is degraded with a workaround (P2); an off-shade progress bar is cosmetic (P3)."
+    },
+    {
+      "id": "pt_09",
+      "title": "Crash with a workaround",
+      "difficulty": "edge",
+      "tags": [
+        "P2",
+        "workaround",
+        "rare"
+      ],
+      "input": "Bug report: 'When a Bropilot graph contains a node whose name is longer than 500 characters, the node picker dropdown crashes when opened, so users cannot link nodes through the picker. Workaround: shorten the long name, or create the link by dragging between nodes on the canvas, which still works.'",
+      "expected": "P2",
+      "rationale": "Linking nodes is a core workflow and the picker crash degrades it, but two working workarounds exist, so it is P2 under the rubric. It is not P3, because a crash in a core action is not cosmetic, and not P1, because the workflow is not blocked."
+    },
+    {
+      "id": "pt_10",
+      "title": "Total outage",
+      "difficulty": "hard",
+      "tags": [
+        "P0",
+        "outage"
+      ],
+      "input": "Incident report: 'The Bropilot Studio web app is down. The server returns 500 errors. Users cannot access their graphs or create new nodes. This has been ongoing for 2 hours. Root cause: Database connection pool is exhausted.'",
+      "expected": "P0",
+      "rationale": "Total outage = product unusable = P0. All user workflows are blocked. This requires immediate remediation."
+    },
+    {
+      "id": "pt_11",
+      "title": "Payroll calculation error",
+      "difficulty": "easy",
+      "tags": [
+        "accounting",
+        "P0",
+        "data-loss"
+      ],
+      "input": "Issue: 'Payroll run for October is calculating net pay as negative (e.g., employee owed $50 instead of receiving salary). Employees report missing deposits. Manual review shows deductions were applied twice. The faulty run also overwrote the stored year-to-date deduction records, which cannot be restored from backup. This blocks all payroll processing.'",
+      "expected": "P0",
+      "rationale": "Stored year-to-date records were overwritten with no backup, which is data loss, and payroll is fully blocked. Clear P0."
+    },
+    {
+      "id": "pt_12",
+      "title": "Supply chain delivery delay",
+      "difficulty": "medium",
+      "tags": [
+        "supply-chain",
+        "P1",
+        "blocked-workflow"
+      ],
+      "input": "Issue: 'A critical part from Supplier X has not arrived. The part was due 2024-10-01 but is now 5 days late. The assembly line for Model B is idle waiting for this part; the other product lines are running normally. There is no alternative supplier configured. Production is blocked.'",
+      "expected": "P1",
+      "rationale": "The Model B production workflow is blocked with no alternative supplier (no workaround), but there is no data loss, security issue or total outage since other lines run normally. P1."
+    },
+    {
+      "id": "pt_13",
+      "title": "HR policy interpretation question",
+      "difficulty": "medium",
+      "tags": [
+        "HR",
+        "P2",
+        "clarification"
+      ],
+      "input": "Issue: 'The remote work policy says employees can work from home 'as needed.' A team member is asking if they can work remotely 4 days per week instead of 2. Until the policy is clarified, every remote-work request must be escalated to HR for manual case-by-case approval, which takes about a week. Meanwhile the employee can keep working from the office as usual.'",
+      "expected": "P2",
+      "rationale": "The remote-work approval workflow is degraded (slow manual HR escalation) but a workaround exists (keep working from the office, manual approval). Not blocked, not cosmetic. P2."
+    },
+    {
+      "id": "pt_14",
+      "title": "Medicine inventory shortage",
+      "difficulty": "hard",
+      "tags": [
+        "medicine",
+        "P0",
+        "critical"
+      ],
+      "input": "Issue: 'The pharmacy inventory database crashed and the last week of stock and prescription records was lost with no backup. Because of this, insulin supply was not tracked and is now depleted. The reorder failed and the next shipment is not due until next week. Diabetic patients cannot collect their prescriptions. Patient safety is at risk.'",
+      "expected": "P0",
+      "rationale": "Prescription and stock records were permanently lost (data loss) and patients cannot get critical medication. Data loss alone puts it in P0."
+    },
+    {
+      "id": "pt_15",
+      "title": "Legal contract compliance gap",
+      "difficulty": "medium",
+      "tags": [
+        "law",
+        "P1",
+        "compliance"
+      ],
+      "input": "Issue: 'GDPR requires data subject access requests (DSARs) to be fulfilled within 30 days. Our system processes DSARs in a weekly Monday batch job. Since the last release the batch job crashes before processing any request, and there is no manual way to fulfil a DSAR. Two pending requests will pass the 30-day deadline next week.'",
+      "expected": "P1",
+      "rationale": "The DSAR fulfilment workflow is completely blocked with no workaround (no manual path), but there is no data loss, security breach or total product outage. P1."
+    }
+  ]
+}

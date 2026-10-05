@@ -1,0 +1,195 @@
+{
+  "id": "factual_claim_check",
+  "name": "Factual Claim Check",
+  "description": "Decide whether a short factual claim from an academic or general-knowledge domain is true or false. Claims are unambiguous and well established; false ones are plausible near-misses (wrong century, swapped element, off-by-one, causation asserted from correlation). Measures baseline world knowledge and resistance to common misconceptions.",
+  "system_prompt": "You are a fact checker. Judge each claim against well-established knowledge as of 2024. If a claim is approximately true to the precision it states, answer true. A claim is false if any stated part is wrong, including a wrong date, quantity, place or causal link. Common misconceptions are false.\ndecision must be \"true\" or \"false\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "true",
+      "false"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Is this claim true according to well-established knowledge as of 2024? If it is approximately true to the precision it states, it is true; this tolerance covers rounded or hedged figures (\"about\", \"roughly\") only. An exact count, ordinal position or date that is off by any amount is false. It is false if any stated part is wrong, including a wrong date, quantity, place or causal link. Common misconceptions are false.",
+    "criteria": {
+      "true": "True: every stated part is correct to the precision stated.",
+      "false": "False: some stated part (date, count, ordinal position, quantity, place, causal link) is wrong, even if only off by one, or it is a common misconception."
+    },
+    "true_option": "true",
+    "false_option": "false"
+  },
+  "cases": [
+    {
+      "id": "fact_01",
+      "title": "Mitochondrial DNA",
+      "difficulty": "easy",
+      "tags": [
+        "biology"
+      ],
+      "input": "Mitochondria contain their own DNA, separate from the DNA in the cell nucleus.",
+      "expected": "true",
+      "rationale": "Mitochondria carry a small circular genome of their own."
+    },
+    {
+      "id": "fact_02",
+      "title": "Human chromosomes",
+      "difficulty": "easy",
+      "tags": [
+        "biology",
+        "near-miss"
+      ],
+      "input": "Humans normally have 24 pairs of chromosomes in each somatic cell.",
+      "expected": "false",
+      "rationale": "Humans have 23 pairs (46 chromosomes)."
+    },
+    {
+      "id": "fact_03",
+      "title": "Boiling point of water (templated)",
+      "difficulty": "easy",
+      "tags": [
+        "chemistry",
+        "physics",
+        "templated"
+      ],
+      "vars": {
+        "t": {
+          "type": "choice",
+          "options": [
+            "100",
+            "90",
+            "110"
+          ]
+        }
+      },
+      "input": "Water boils at {{t}} degrees Celsius at 1 atm of pressure.",
+      "expected_expr": "vars.t === '100' ? 'true' : 'false'",
+      "rationale": "At standard atmospheric pressure water boils at 100 C."
+    },
+    {
+      "id": "fact_04",
+      "title": "Mars position (templated)",
+      "difficulty": "edge",
+      "tags": [
+        "astronomy",
+        "off-by-one",
+        "templated"
+      ],
+      "vars": {
+        "k": {
+          "type": "int",
+          "min": 2,
+          "max": 6
+        }
+      },
+      "input": "Mars is planet number {{k}} in order from the Sun, counting Mercury as number 1.",
+      "expected_expr": "vars.k === 4 ? 'true' : 'false'",
+      "rationale": "Mars is the fourth planet; neighbours at 3 and 5 are off-by-one traps."
+    },
+    {
+      "id": "fact_05",
+      "title": "End of World War II (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "history",
+        "templated"
+      ],
+      "vars": {
+        "y": {
+          "type": "choice",
+          "options": [
+            "1945",
+            "1944",
+            "1946"
+          ]
+        }
+      },
+      "input": "World War II ended in {{y}}, with the surrender of Japan in September of that year.",
+      "expected_expr": "vars.y === '1945' ? 'true' : 'false'",
+      "rationale": "Japan formally surrendered on 2 September 1945."
+    },
+    {
+      "id": "fact_06",
+      "title": "Kilimanjaro location",
+      "difficulty": "medium",
+      "tags": [
+        "geography",
+        "near-miss"
+      ],
+      "input": "Mount Kilimanjaro, the highest mountain in Africa, is located in Kenya.",
+      "expected": "false",
+      "rationale": "It is in Tanzania, near the Kenyan border."
+    },
+    {
+      "id": "fact_07",
+      "title": "Mandarin vs English native speakers",
+      "difficulty": "medium",
+      "tags": [
+        "linguistics"
+      ],
+      "input": "Mandarin Chinese has more native speakers worldwide than English does.",
+      "expected": "true",
+      "rationale": "Mandarin has roughly 900 million native speakers, versus about 380 million for English."
+    },
+    {
+      "id": "fact_08",
+      "title": "Discovery of penicillin",
+      "difficulty": "medium",
+      "tags": [
+        "medicine",
+        "history"
+      ],
+      "input": "Alexander Fleming observed the antibacterial effect of Penicillium mould, leading to the discovery of penicillin, in 1928.",
+      "expected": "true",
+      "rationale": "Fleming's observation at St Mary's Hospital dates to September 1928."
+    },
+    {
+      "id": "fact_09",
+      "title": "Angle sum of a triangle",
+      "difficulty": "easy",
+      "tags": [
+        "mathematics"
+      ],
+      "input": "In Euclidean geometry, the interior angles of any triangle sum to 180 degrees.",
+      "expected": "true",
+      "rationale": "A standard theorem of Euclidean geometry."
+    },
+    {
+      "id": "fact_10",
+      "title": "Definition of GDP",
+      "difficulty": "medium",
+      "tags": [
+        "economics"
+      ],
+      "input": "Gross domestic product measures the market value of the final goods and services produced within a country in a given period.",
+      "expected": "true",
+      "rationale": "That is the standard definition of GDP."
+    },
+    {
+      "id": "fact_11",
+      "title": "Hammer and feather in a vacuum",
+      "difficulty": "edge",
+      "tags": [
+        "physics",
+        "misconception"
+      ],
+      "input": "In a vacuum, a hammer falls faster than a feather dropped from the same height.",
+      "expected": "false",
+      "rationale": "Without air resistance all objects fall with the same acceleration; Apollo 15 demonstrated this on the Moon."
+    },
+    {
+      "id": "fact_12",
+      "title": "MMR vaccine and autism",
+      "difficulty": "edge",
+      "tags": [
+        "medicine",
+        "causation",
+        "misconception"
+      ],
+      "input": "Large population studies have established that the MMR vaccine causes autism.",
+      "expected": "false",
+      "rationale": "Large studies, including a Danish cohort of over 650,000 children, found no causal link; the original claim was retracted."
+    }
+  ]
+}

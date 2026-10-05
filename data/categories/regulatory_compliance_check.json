@@ -1,0 +1,242 @@
+{
+  "id": "regulatory_compliance_check",
+  "name": "Regulatory Compliance Check",
+  "description": "Decide whether a described business practice complies with a rule that is quoted verbatim in the input. Rules are realistic paraphrases of revenue recognition (IFRS 15 / ASC 606), GDPR-style privacy, SOX-style segregation of duties, procurement, labour, food safety, clinical research, export control, accessibility and tax-invoicing requirements, labelled with invented section numbers. This measures whether a model applies the exact text of a rule (thresholds, inclusive bounds, exemptions, \"written\", \"before\") rather than its general impression of what is reasonable, and whether it keeps to the quoted rule instead of importing other regulations. Compliance reviewers, auditors and ERP controls make this decision constantly.",
+  "system_prompt": "You are a compliance reviewer. Each input quotes a rule (a policy, standard or regulation excerpt; section labels such as \"Policy §4.2\" are illustrative) and then describes a practice or event.\nDecide whether the practice complies with the QUOTED rule.\nRules:\n1. Judge compliance ONLY against the quoted rule text. Ignore any other law, standard or policy, even if the practice would breach it.\n2. Apply the letter of the rule. A practice that meets the rule's purpose but not its explicit requirements (a threshold, a form such as \"written\", a timing such as \"before\") is noncompliant.\n3. If the quoted rule contains an exception or exemption and the described facts satisfy every condition of that exception, the practice is compliant.\n4. Numeric limits are applied exactly as written, including whether bounds are inclusive (\"at least\", \"or more\", \"no more than\") or exclusive (\"more than\", \"beyond\"). Do not round measured values.\n5. Assume the facts described are true and complete.\ndecision must be \"compliant\" or \"noncompliant\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "compliant",
+      "noncompliant"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Does the described practice or event comply with the QUOTED rule (policy, standard or regulation excerpt; section labels are illustrative)? Rules: (1) Judge ONLY against the quoted rule text; ignore any other law, standard or policy. (2) Apply the letter of the rule: meeting its purpose but not an explicit requirement (a threshold, a form such as \"written\", a timing such as \"before\") is noncompliant. (3) If the rule has an exception or exemption and the facts satisfy every condition of it, the practice is compliant. (4) Apply numeric limits exactly as written, including inclusive (\"at least\", \"or more\", \"no more than\") vs exclusive (\"more than\", \"beyond\") bounds; do not round measured values. (5) Assume the described facts are true and complete.",
+    "criteria": {
+      "true": "Compliant: the practice meets every explicit requirement of the quoted rule, or fully satisfies a stated exception.",
+      "false": "Noncompliant: the practice misses at least one explicit requirement of the quoted rule and no exception fully applies."
+    },
+    "true_option": "compliant",
+    "false_option": "noncompliant"
+  },
+  "cases": [
+    {
+      "id": "reg_01",
+      "title": "Data subject access request response time (templated)",
+      "difficulty": "easy",
+      "tags": [
+        "gdpr",
+        "privacy",
+        "dsar",
+        "deadline",
+        "templated"
+      ],
+      "vars": {
+        "d": {
+          "type": "int",
+          "min": 12,
+          "max": 45
+        }
+      },
+      "input": "RULE (Privacy Policy §7.1, modelled on GDPR Art. 12(3)): \"The company shall respond to a data subject access request no later than 30 calendar days after receipt. This period may be extended by up to a further 60 days where the request is complex, provided the data subject is informed of the extension and the reasons for it within the initial 30 days.\"\n\nPRACTICE: A customer emailed an access request on 3 March. It was a routine request and no extension notice was sent. The company sent the complete copy of the customer's data {{d}} calendar days after receipt.",
+      "expected_expr": "vars.d <= 30 ? 'compliant' : 'noncompliant'",
+      "rationale": "Without a notified extension the limit is 30 calendar days, inclusive (\"no later than 30 calendar days\"). A response on day 30 or earlier complies; day 31 or later does not. The extension clause is a distractor because no notice was sent. Checked with node over d = 12..45."
+    },
+    {
+      "id": "reg_02",
+      "title": "Three-quote procurement threshold (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "procurement",
+        "threshold",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "amt": {
+          "type": "int",
+          "min": 8000,
+          "max": 12000
+        }
+      },
+      "input": "RULE (Procurement Policy §4.2): \"Any purchase with a total value of €10,000 or more, excluding VAT, requires at least three written quotations from independent suppliers before the purchase order is issued. Purchases below €10,000 excluding VAT may be made from a single supplier on a single quotation.\"\n\nPRACTICE: The facilities team bought replacement office chairs for a total of €{{amt}} excluding VAT (VAT was charged on top). They obtained one written quotation from their usual supplier and issued the purchase order.",
+      "expected_expr": "vars.amt < 10000 ? 'compliant' : 'noncompliant'",
+      "rationale": "The three-quote requirement applies at €10,000 or more excluding VAT. Below that a single quotation is explicitly allowed. At exactly €10,000 the threshold is met (\"or more\") and one quote is noncompliant. The VAT mention tempts models to add VAT and cross the threshold, but the rule excludes VAT. Checked with node over amt = 8000..12000."
+    },
+    {
+      "id": "reg_03",
+      "title": "Weekly overtime premium (templated)",
+      "difficulty": "easy",
+      "tags": [
+        "labour",
+        "overtime",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "h": {
+          "type": "int",
+          "min": 34,
+          "max": 48
+        }
+      },
+      "input": "RULE (Employee Handbook §3.4, modelled on the US FLSA): \"Non-exempt employees must be paid at one and one-half times their regular rate of pay for all hours worked beyond 40 in a workweek.\"\n\nPRACTICE: A non-exempt warehouse associate worked {{h}} hours in the workweek of 10–16 June. Payroll paid every hour that week at the associate's regular hourly rate.",
+      "expected_expr": "vars.h <= 40 ? 'compliant' : 'noncompliant'",
+      "rationale": "\"Beyond 40\" is exclusive: the premium applies only to hours after the 40th. At 40 hours or fewer, paying everything at the regular rate complies. At 41 or more, the hours above 40 needed 1.5x pay, so the practice is noncompliant. Checked with node over h = 34..48."
+    },
+    {
+      "id": "reg_04",
+      "title": "Cold-chain temperature excursion (templated)",
+      "difficulty": "easy",
+      "tags": [
+        "food-safety",
+        "cold-chain",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "t": {
+          "type": "int",
+          "min": 1,
+          "max": 9
+        }
+      },
+      "input": "RULE (Food Safety SOP §2.3): \"Chilled ready-to-eat products must be held at 4 °C or below at all times during transport. Any logged reading above 4 °C constitutes a temperature deviation, and the affected lot must be quarantined on arrival.\"\n\nPRACTICE: A refrigerated truck delivered a lot of pre-packed salads. The data logger recorded readings every 5 minutes, and the highest reading during the journey was {{t}} °C. The lot was released to the shop floor on arrival without quarantine.",
+      "expected_expr": "vars.t <= 4 ? 'compliant' : 'noncompliant'",
+      "rationale": "If the maximum reading is 4 °C or below there was no deviation, and releasing the lot is compliant. Any maximum above 4 °C is a deviation that required quarantine, so releasing it without quarantine is noncompliant. Checked with node over t = 1..9."
+    },
+    {
+      "id": "reg_05",
+      "title": "Rest break for long shifts (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "labour",
+        "rest-break",
+        "templated",
+        "two-conditions"
+      ],
+      "vars": {
+        "h": {
+          "type": "int",
+          "min": 4,
+          "max": 10
+        },
+        "b": {
+          "type": "choice",
+          "options": [
+            "15",
+            "20",
+            "30",
+            "45"
+          ]
+        }
+      },
+      "input": "RULE (Working Time Policy §5.1, modelled on the EU Working Time Directive): \"A worker whose working day is longer than six hours is entitled to an uninterrupted rest break of at least 30 minutes during that working day.\"\n\nPRACTICE: On Saturday a café worker worked a {{h}}-hour shift and was given a single uninterrupted rest break of {{b}} minutes partway through the shift.",
+      "expected_expr": "(vars.h <= 6 || Number(vars.b) >= 30) ? 'compliant' : 'noncompliant'",
+      "rationale": "The break entitlement applies only when the working day is longer than six hours (exclusive). For shifts of 6 hours or less any break is compliant. For longer shifts the single break must be at least 30 minutes, so 15 or 20 minutes is noncompliant and 30 or 45 is compliant. Checked with node over every h and b combination."
+    },
+    {
+      "id": "reg_06",
+      "title": "Upfront recognition of an annual support contract",
+      "difficulty": "medium",
+      "tags": [
+        "revenue-recognition",
+        "ifrs-15",
+        "asc-606",
+        "accounting"
+      ],
+      "input": "RULE (Revenue Policy §5, summarising IFRS 15 / ASC 606 step 5): \"Revenue is recognised when, or as, the entity satisfies a performance obligation by transferring control of the promised good or service to the customer. A performance obligation satisfied over time, such as a stand-ready service provided evenly across a contract term, is recognised over that term.\"\n\nPRACTICE: On 1 January a software vendor signed a 12-month technical support contract for €120,000, under which it stands ready to answer the customer's support tickets throughout the year. The customer paid the full amount on 1 January, which is non-refundable. The vendor recognised the full €120,000 as revenue in January.",
+      "expected": "noncompliant",
+      "rationale": "A stand-ready support service provided across the year is satisfied over time, so revenue should be recognised ratably (about €10,000 per month). Receiving non-refundable cash upfront does not mean the obligation is satisfied. A weak model conflates cash receipt or invoicing with recognition."
+    },
+    {
+      "id": "reg_07",
+      "title": "Same person creates vendor and approves its invoice",
+      "difficulty": "easy",
+      "tags": [
+        "sox",
+        "segregation-of-duties",
+        "erp",
+        "internal-control"
+      ],
+      "input": "RULE (Internal Control SOD-3, SOX-style): \"An employee who creates or modifies a vendor master record in the ERP system may not approve invoices or payments to that vendor.\"\n\nPRACTICE: While the accounts payable manager was on leave, an AP clerk created a new vendor record for a cleaning contractor and, to avoid a late-payment fee, approved the vendor's first invoice of €2,300 herself. The manager reviewed and signed off the transaction retrospectively when she returned a week later.",
+      "expected": "noncompliant",
+      "rationale": "The clerk both created the vendor master record and approved an invoice to that vendor, which the rule forbids outright. The rule has no exception for absences, small amounts or retrospective review. A weak model treats the after-the-fact review as a mitigating control that cures the breach."
+    },
+    {
+      "id": "reg_08",
+      "title": "Screening blood draw before signed consent",
+      "difficulty": "medium",
+      "tags": [
+        "clinical",
+        "informed-consent",
+        "timing",
+        "gcp"
+      ],
+      "input": "RULE (Trial Protocol §6.1, modelled on ICH-GCP): \"Written informed consent must be obtained from each participant before any study-specific procedure is performed, including screening tests done only to determine eligibility.\"\n\nPRACTICE: A potential participant arrived for a screening visit. The research nurse explained the study verbally and the participant agreed orally, so the nurse drew a blood sample for the study's eligibility panel at 09:10. The participant read and signed the written consent form at 09:45 the same morning.",
+      "expected": "noncompliant",
+      "rationale": "The eligibility blood draw is a study-specific screening procedure, and it happened before written consent was signed. Oral agreement does not satisfy \"written\", and a signature 35 minutes later is after the procedure. A weak model reasons that consent was obtained the same morning so the spirit is met."
+    },
+    {
+      "id": "reg_09",
+      "title": "Invoice compliant with quoted VAT-number rule; other rule breached",
+      "difficulty": "edge",
+      "tags": [
+        "tax",
+        "vat",
+        "invoice",
+        "unquoted-rule",
+        "distractor"
+      ],
+      "input": "RULE (Invoicing Policy §T.2, modelled on EU VAT invoicing rules): \"Every VAT invoice issued to a business customer must show the supplier's VAT identification number.\"\n\nPRACTICE: A supplier issued a VAT invoice to a business customer. The invoice shows the supplier's name, address and VAT identification number, the invoice date, a sequential invoice number, the goods supplied and the VAT charged. It was issued 45 days after the goods were delivered, whereas national VAT law requires invoices to be issued within 15 days of the supply.",
+      "expected": "compliant",
+      "rationale": "The quoted rule requires only that the supplier's VAT identification number appears, and it does. The late issue breaches a different, unquoted rule, which the system prompt says to ignore. A weak model flags the 45-day delay and answers noncompliant."
+    },
+    {
+      "id": "reg_10",
+      "title": "Contrast ratio 4.48:1 against a 4.5:1 minimum",
+      "difficulty": "edge",
+      "tags": [
+        "accessibility",
+        "wcag",
+        "letter-vs-spirit",
+        "boundary",
+        "rounding"
+      ],
+      "input": "RULE (Digital Accessibility Policy §A.3, modelled on WCAG 2.x SC 1.4.3): \"Body text on customer-facing web pages must have a contrast ratio of at least 4.5:1 against its background.\"\n\nPRACTICE: The redesigned checkout page uses grey body text (#747474) on an off-white background (#FAFAFA). The measured contrast ratio is 4.48:1. The design lead signed it off, noting that the ratio rounds to 4.5:1, that no user can perceive the difference, and that the text passed an informal readability check with five colleagues.",
+      "expected": "noncompliant",
+      "rationale": "Using the WCAG relative-luminance formula, #747474 on #FAFAFA is 4.478:1 (computed with node), which is below the explicit \"at least 4.5:1\" minimum. Rounding the measured value and informal readability checks meet the spirit at best, and rules 2 and 4 say to apply the letter without rounding. A weak model accepts the rounding argument."
+    },
+    {
+      "id": "reg_11",
+      "title": "Talent-pool exemption to CV deletion",
+      "difficulty": "edge",
+      "tags": [
+        "gdpr",
+        "privacy",
+        "retention",
+        "exemption",
+        "hr"
+      ],
+      "input": "RULE (Data Retention Policy §9.2): \"CVs and application data of unsuccessful candidates must be deleted within 6 months after the recruitment process closes, unless the candidate has given explicit written consent to be kept in the talent pool, in which case the data may be retained for up to 24 months from the date of that consent.\"\n\nPRACTICE: A candidate was rejected for a data analyst role when that recruitment closed on 1 February 2024. At rejection she ticked an unticked box on a signed web form reading \"I consent to Acme keeping my CV in its talent pool for future roles\". On 1 April 2025, 14 months later, her CV is still held in the talent pool.",
+      "expected": "compliant",
+      "rationale": "The 6-month deletion rule is displaced by the exemption: the candidate gave explicit written consent by actively ticking an unticked box, and 14 months is within the 24-month limit from consent. Every condition of the exception is met. A weak model sees \"14 months > 6 months\" and answers noncompliant."
+    },
+    {
+      "id": "reg_12",
+      "title": "Marketing emails based on a pre-ticked box",
+      "difficulty": "hard",
+      "tags": [
+        "gdpr",
+        "privacy",
+        "consent",
+        "marketing",
+        "lawful-basis"
+      ],
+      "input": "RULE (Privacy Policy §3.1, modelled on GDPR Art. 4(11) and Recital 32): \"Customer personal data may be used for direct-marketing emails only where the customer has given prior opt-in consent. Consent must be given by a clear affirmative act; silence, pre-ticked boxes or inactivity do not constitute consent.\"\n\nPRACTICE: The online checkout page shows a box, ticked by default, labelled \"Send me offers and news by email\". Customers can untick it before paying. The company sends its weekly promotional newsletter to every customer who completed checkout with the box still ticked, and every newsletter contains a one-click unsubscribe link.",
+      "expected": "noncompliant",
+      "rationale": "Leaving a pre-ticked box ticked is not a clear affirmative act, and the quoted rule says so explicitly. The ability to untick it and the unsubscribe link make it opt-out, not opt-in. A weak model treats the chance to untick or unsubscribe as sufficient."
+    }
+  ]
+}

@@ -1,0 +1,247 @@
+{
+  "id": "ambiguity_detection",
+  "name": "Ambiguity Detection",
+  "description": "Decide whether a requirement, discovery question, acceptance criterion or tester instruction is ambiguous, meaning two competent implementers or testers could read it differently. Bropilot requirement nodes and Protopilot discovery questions and tester tasks are only useful if they pin down one behaviour; catching vague quantifiers, unresolved references and missing thresholds early prevents rework and unreliable test evidence.",
+  "system_prompt": "You are a requirements reviewer for software and product-research projects. You will be given one requirement, discovery question, acceptance criterion, or tester instruction. Decide whether it is ambiguous. Definition: it is \"ambiguous\" if a competent engineer (or tester) could reasonably implement or follow it in materially different ways, or could not tell when it is done. It is \"unambiguous\" if a competent reader would arrive at essentially the same behaviour and the same done-test. Length does not matter: a long text can be precise and a short one can be vague. If the text defines its own terms, judge using those definitions. Do not mark something ambiguous merely because it omits unrelated details or could be worded more elegantly. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "ambiguous",
+      "unambiguous"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Is this requirement, discovery question, acceptance criterion or instruction ambiguous? Ambiguous means a competent engineer or tester could reasonably implement or follow it in materially different ways, or could not tell when it is done. Length does not matter: long text can be precise and short text vague. A criterion that rests on an undefined subjective or uncomputable term (e.g. \"relevance\", \"importance\", \"what matters most\", \"fast\", \"as needed\") is ambiguous, and so is text whose directives conflict (e.g. \"regularly\" vs \"as needed\"). If the text defines its own terms, judge using those definitions. Do not call it ambiguous merely because it omits unrelated details or could be worded more elegantly.",
+    "criteria": {
+      "true": "Ambiguous: competent readers could implement or follow it in materially different ways, or could not tell when it is done (undefined subjective terms, conflicting directives, no stop condition).",
+      "false": "Unambiguous: competent readers would arrive at essentially the same behaviour and the same done-test (e.g. an ordering by a named field with an explicit direction)."
+    },
+    "true_option": "ambiguous",
+    "false_option": "unambiguous"
+  },
+  "cases": [
+    {
+      "id": "amb_01",
+      "title": "Vague speed requirement",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "vague-quantifier",
+        "requirement"
+      ],
+      "input": "Requirement (Bropilot Studio): The graph view should load fast, even for large graphs.",
+      "expected": "ambiguous",
+      "rationale": "\"fast\" and \"large\" have no thresholds, so nobody can tell when the requirement is met. A weak model may accept it because it sounds like a normal requirement."
+    },
+    {
+      "id": "amb_02",
+      "title": "Concrete export criterion",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "precise"
+      ],
+      "input": "Acceptance criterion (Bropilot Studio): Clicking \"Export JSON\" downloads a file named graph.json whose top-level keys are exactly \"nodes\" and \"edges\". The export succeeds for graphs of up to 500 nodes and 2,000 edges.",
+      "expected": "unambiguous",
+      "rationale": "File name, structure and size bounds are all explicit; a tester can verify it pass or fail."
+    },
+    {
+      "id": "amb_03",
+      "title": "Unresolved pronoun",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "pronoun"
+      ],
+      "input": "Requirement (Bropilot Studio): When a persona is linked to a use case and a goal, it should be highlighted in the graph view.",
+      "expected": "ambiguous",
+      "rationale": "\"it\" could be the persona, the use case or the goal, so different engineers would highlight different nodes."
+    },
+    {
+      "id": "amb_04",
+      "title": "Short but precise limit",
+      "difficulty": "medium",
+      "tags": [
+        "protopilot",
+        "short",
+        "precise"
+      ],
+      "input": "Requirement (Protopilot core): Reject any save request whose authoring state exceeds 1 MiB (1,048,576 bytes) with the error code \"state_too_large\", and leave the stored state unchanged.",
+      "expected": "unambiguous",
+      "rationale": "Threshold, error code and side effect are all stated. Being short does not make it vague."
+    },
+    {
+      "id": "amb_05",
+      "title": "Precise via defined term",
+      "difficulty": "hard",
+      "tags": [
+        "protopilot",
+        "defined-term",
+        "precise"
+      ],
+      "input": "Definition: in this document, a slice is \"ready\" when every assumption in it has (a) a prediction, (b) a statement of what would change the author's mind, and (c) at least one alternative explanation.\nAcceptance criterion: Publishing the selected slice is allowed if and only if the slice is ready.",
+      "expected": "unambiguous",
+      "rationale": "\"ready\" is vague in general but is defined in the input with three checkable conditions. A weak model flags the word without reading the definition."
+    },
+    {
+      "id": "amb_06",
+      "title": "Open-ended tester instruction",
+      "difficulty": "medium",
+      "tags": [
+        "protopilot",
+        "tester-instruction",
+        "vague"
+      ],
+      "input": "Tester instruction (Protopilot, Prototype & test): \"Have a play with the prototype and tell us whether you think it is good.\"",
+      "expected": "ambiguous",
+      "rationale": "No task, scenario or observation rule, and \"good\" is undefined. Testers would do different things and report different kinds of answers."
+    },
+    {
+      "id": "amb_07",
+      "title": "Precise criteria with one vague tail",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "long-input",
+        "hidden",
+        "vague-quantifier"
+      ],
+      "input": "Acceptance criteria for the \"Import graph\" feature in Bropilot Studio:\n1. The user selects a .json file from disk; files that are not valid JSON show the message \"Not a valid graph file\" and change nothing.\n2. The file must contain a top-level \"nodes\" array and a top-level \"edges\" array; if either is missing, show \"Missing nodes or edges\" and change nothing.\n3. Every node must have a string \"id\" and a \"kind\" that is one of the 28 ontology kinds; nodes with an unknown kind are kept but flagged in the health panel.\n4. Edges whose source or target id does not exist are dropped and counted in a toast reading \"N edges dropped\".\n5. After a successful import the graph is shown and autosaved to localStorage.\n6. The whole import should feel snappy.",
+      "expected": "ambiguous",
+      "rationale": "Five criteria are precise, but the last one (\"feel snappy\") has no measure, so the set cannot be signed off as one clear definition of done. A weak model stops reading after the precise items."
+    },
+    {
+      "id": "amb_08",
+      "title": "Long, precise tester task",
+      "difficulty": "edge",
+      "tags": [
+        "protopilot",
+        "long-input",
+        "tester-instruction",
+        "precise"
+      ],
+      "input": "Tester instruction (Protopilot, Prototype & test):\nYou will be asked to send an invoice for 400 dollars to a client called \"Acme\" using a clickable prototype. Start the screen recorder, then open the prototype link and read the task card aloud. Do not ask the facilitator any questions; if you get stuck for more than 3 minutes, say \"I give up\" and stop. Complete the task by reaching the screen titled \"Invoice sent\". When you finish, or stop, say the word \"done\". The facilitator records (1) whether you reached \"Invoice sent\" without help and (2) the seconds from your first click to that screen. Afterwards you will be asked exactly one question: \"What, if anything, did you expect to happen that did not?\"",
+      "expected": "unambiguous",
+      "rationale": "Start condition, task, stop conditions, observation rule and follow-up question are all explicit. Length and detail are not ambiguity."
+    },
+    {
+      "id": "amb_09",
+      "title": "Latency requirement with or without threshold",
+      "difficulty": "edge",
+      "tags": [
+        "templated",
+        "vague-quantifier",
+        "bropilot"
+      ],
+      "vars": {
+        "timing": {
+          "type": "choice",
+          "options": [
+            "within 2 seconds for at least 95% of requests",
+            "quickly",
+            "fast enough for users",
+            "within 2 seconds for at least 95% of requests, measured server-side over a rolling 24 hours",
+            "in a reasonable time"
+          ]
+        }
+      },
+      "input": "Requirement (Bropilot Studio): The \"copy context\" export must return the selected graph slice {{timing}}.",
+      "expected_expr": "vars.timing.indexOf('2 seconds') >= 0 ? 'unambiguous' : 'ambiguous'",
+      "rationale": "Options with a numeric threshold and percentile are testable; the others contain only vague words. A weak model may treat any adverb as acceptable."
+    },
+    {
+      "id": "amb_10",
+      "title": "Sort order specified or not",
+      "difficulty": "hard",
+      "tags": [
+        "templated",
+        "protopilot",
+        "ordering"
+      ],
+      "vars": {
+        "sortby": {
+          "type": "choice",
+          "options": [
+            "the time each item was recorded, newest first",
+            "relevance",
+            "importance",
+            "the time each item was recorded, oldest first",
+            "what matters most to the author"
+          ]
+        }
+      },
+      "input": "Requirement (Protopilot Learn pass): The evidence list for an assumption is ordered by {{sortby}}.",
+      "expected_expr": "vars.sortby.indexOf('time each item was recorded') >= 0 ? 'unambiguous' : 'ambiguous'",
+      "rationale": "Ordering by a timestamp with a direction is deterministic. \"relevance\", \"importance\" and \"what matters most\" have no computable definition."
+    },
+    {
+      "id": "amb_11",
+      "title": "Chemistry reaction specification",
+      "difficulty": "easy",
+      "tags": [
+        "chemistry",
+        "precise"
+      ],
+      "input": "Requirement: 'Titrate 25.00 mL of 0.100 M HCl with 0.100 M NaOH at 25 °C. Add the NaOH from a burette in 0.50 mL increments, stirring continuously, and record the pH after each addition using a pH meter calibrated at pH 4, 7 and 10. Stop when a total of 40.00 mL of NaOH has been added.'",
+      "expected": "unambiguous",
+      "rationale": "Concentrations, volumes, temperature, increment size, measurement instrument and calibration, and an explicit stopping rule are all specified. Two competent chemists would perform the same procedure and know when it is done."
+    },
+    {
+      "id": "amb_12",
+      "title": "HR remote work policy",
+      "difficulty": "medium",
+      "tags": [
+        "HR",
+        "ambiguous",
+        "edge"
+      ],
+      "input": "Policy: 'Employees may work from home as needed for flexibility and productivity. Core hours should overlap with team presence. Work-from-home days must be coordinated with managers to ensure team availability.'",
+      "expected": "ambiguous",
+      "rationale": "'As needed' is undefined (need by whom? what counts?). 'Core hours' is vague (how many hours, which time zone?). 'Coordinated' is subjective (one manager may say yes, another no). Cannot be enforced uniformly."
+    },
+    {
+      "id": "amb_13",
+      "title": "Accounting transaction rule",
+      "difficulty": "medium",
+      "tags": [
+        "accounting",
+        "templated"
+      ],
+      "vars": {
+        "tolerance": {
+          "type": "int",
+          "min": 0,
+          "max": 5
+        }
+      },
+      "input": "Rule: 'Approve the invoice payment if the invoice amount differs from the PO amount by no more than {{tolerance}}% of the PO amount. Otherwise do not pay, and escalate the invoice to the CFO.'",
+      "expected_expr": "'unambiguous'",
+      "rationale": "The comparison base (PO amount), the inclusive bound (\"no more than\"), the approve action and the alternative action (do not pay, escalate to CFO) are all defined for any templated tolerance, so every reader applies the same test."
+    },
+    {
+      "id": "amb_14",
+      "title": "Supply chain inventory limit",
+      "difficulty": "medium",
+      "tags": [
+        "supply-chain"
+      ],
+      "input": "Requirement: 'Maintain inventory levels that balance availability with space constraints. When stock runs low, order new supplies. Avoid overstocking. Adjust for seasonality.'",
+      "expected": "ambiguous",
+      "rationale": "'Low,' 'balance,' 'overstocking,' and 'seasonality' are all undefined. What number is 'low'? What inventory-to-space ratio is 'balance'? Impossible to implement without further definition."
+    },
+    {
+      "id": "amb_15",
+      "title": "Medicine dosage instruction",
+      "difficulty": "hard",
+      "tags": [
+        "medicine",
+        "ambiguous",
+        "hard"
+      ],
+      "input": "Instruction: 'Take this antibiotic regularly as prescribed. Dosage: one tablet per dose, up to three times daily as needed. Take with food if it upsets your stomach. Continue until you feel better or your doctor says to stop.'",
+      "expected": "ambiguous",
+      "rationale": "'Regularly' is vague (every day? every 8 hours?). 'As needed' contradicts 'regularly.' 'As needed' for frequency conflicts with 'as prescribed' (which should be fixed). 'Continue until you feel better' is dangerous: the infection may not be fully cured when symptoms resolve. No objective criteria for adherence."
+    }
+  ]
+}

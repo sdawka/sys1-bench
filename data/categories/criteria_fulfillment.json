@@ -1,0 +1,262 @@
+{
+  "id": "criteria_fulfillment",
+  "name": "Criteria Fulfillment",
+  "description": "Given an acceptance criterion (a testable requirement) and a description of what was implemented, determine whether the implementation satisfies the criterion. This matters for product quality: models that reliably assess fulfillment can gate releases and catch regressions early.",
+  "system_prompt": "You are a product acceptance expert. You will receive an acceptance criterion and a description of an implemented feature or artifact. Assess whether the implementation satisfies the criterion. Consider both explicit requirements and implicit constraints (e.g., negations, data types, edge cases). Respond with ONLY a JSON object: {\"decision\": \"pass\" | \"fail\", \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "pass",
+      "fail"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Does the described implementation or artifact satisfy the acceptance criterion? Consider both explicit requirements and implicit constraints such as negations, data types and edge cases.",
+    "criteria": {
+      "true": "Pass: the implementation satisfies every clause of the criterion, including implicit constraints.",
+      "false": "Fail: the implementation misses or violates at least one explicit or implicit part of the criterion."
+    },
+    "true_option": "pass",
+    "false_option": "fail"
+  },
+  "cases": [
+    {
+      "id": "cf_01",
+      "title": "Basic requirement met",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "basic"
+      ],
+      "input": "Acceptance criterion: 'The persona node must include a name, role, and one motivating use case.'\n\nImplemented node: A persona named 'Alice' with role 'Product Manager' and a motivating use case 'Explore the system architecture to identify gaps.'",
+      "expected": "pass",
+      "rationale": "All three required attributes are present and well-formed. The model should recognize completeness."
+    },
+    {
+      "id": "cf_02",
+      "title": "Missing required attribute",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "basic"
+      ],
+      "input": "Acceptance criterion: 'The module node must have a name, a clear purpose statement, and at least one outgoing dependency edge.'\n\nImplemented node: A module named 'QueryEngine' with purpose 'Handles search and filtering.' Has no outgoing edges yet.",
+      "expected": "fail",
+      "rationale": "One required attribute (outgoing dependency edge) is missing. The criterion is not satisfied despite the node being otherwise well-formed."
+    },
+    {
+      "id": "cf_03",
+      "title": "Negated requirement violated",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "negation"
+      ],
+      "input": "Acceptance criterion: 'A use case node must NOT reference more than 3 actors.'\n\nImplemented use case: 'User onboarding' references Alice (product manager), Bob (engineer), Carol (designer), and Diana (data analyst).",
+      "expected": "fail",
+      "rationale": "The criterion explicitly forbids referencing more than 3 actors, but the implementation violates this constraint with 4 actors. Negated requirements are often missed by weak models."
+    },
+    {
+      "id": "cf_04",
+      "title": "Near-miss: one clause of three missed",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "near-miss",
+        "multi-clause"
+      ],
+      "input": "Acceptance criterion: 'A goal node must have (1) a title, (2) a success metric that states a numeric target with a unit, and (3) at least one incoming motivates edge from a persona or purpose node.'\n\nImplemented goal:\n- title: 'Faster queries'\n- metric: 'p95 query latency — target: noticeably lower than today'\n- incoming edge: persona 'Data analyst' --motivates--> this goal",
+      "expected": "fail",
+      "rationale": "Clauses (1) and (3) are met, but the metric target 'noticeably lower than today' has no number and no unit, so clause (2) is not satisfied. Because every clause is required, the artifact fails. Weak models pass it because two of three clauses hold and the metric names a measurable quantity (p95 latency)."
+    },
+    {
+      "id": "cf_05",
+      "title": "Numeric threshold criterion",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "numeric"
+      ],
+      "vars": {
+        "clicks": {
+          "type": "int",
+          "min": 3,
+          "max": 10
+        },
+        "actual_clicks": {
+          "type": "int",
+          "min": 3,
+          "max": 10
+        }
+      },
+      "input": "Acceptance criterion: 'A prototype test scenario must be completable in at most {{clicks}} clicks.'\n\nPrototype scenario: 'Search for a document by title, filter by date, and export results.' The recorded user flow took {{actual_clicks}} clicks.",
+      "expected_expr": "vars.actual_clicks <= vars.clicks ? 'pass' : 'fail'",
+      "rationale": "Numeric acceptance criteria are common in Protopilot (e.g., task completion steps, latency targets). The model must evaluate: recorded_value <= threshold."
+    },
+    {
+      "id": "cf_06",
+      "title": "Choice-based criterion",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "choice"
+      ],
+      "vars": {
+        "kind": {
+          "type": "choice",
+          "options": [
+            "persona",
+            "usecase",
+            "module",
+            "goal"
+          ]
+        },
+        "provided_kind": {
+          "type": "choice",
+          "options": [
+            "persona",
+            "usecase",
+            "module",
+            "goal"
+          ]
+        }
+      },
+      "input": "Acceptance criterion: 'A Bropilot node created in the Foundations part must be of kind {{kind}}.'\n\nImplemented node: A {{provided_kind}} node named 'Search API' in the Foundations part.",
+      "expected_expr": "vars.kind === vars.provided_kind ? 'pass' : 'fail'",
+      "rationale": "Bropilot has 28 node kinds; acceptance often specifies which kinds are allowed in which contexts. The model must match the expected kind exactly."
+    },
+    {
+      "id": "cf_07",
+      "title": "Near-miss: almost correct",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "near-miss"
+      ],
+      "input": "Acceptance criterion: 'A hypothesis node must include: (1) a prediction, (2) a confidence expressed as a number between 0 and 1, and (3) a description of what observation would change your mind.'\n\nImplemented hypothesis: 'If we reduce API latency to under 100ms, adoption will increase by 20% (confidence: high). We would change our mind if adoption does not increase despite hitting 100ms.'",
+      "expected": "fail",
+      "rationale": "Clauses (1) and (3) are present, but the confidence is the word 'high', not a number between 0 and 1, so clause (2) is unmet. Weak models accept 'high' as a confidence level and pass the near-miss."
+    },
+    {
+      "id": "cf_08",
+      "title": "Complex scenario with multiple criteria",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "protopilot",
+        "complex"
+      ],
+      "input": "Acceptance criteria for a Protopilot context: '(1) It must name the situation and at least one consequence. (2) It must identify at least two competing needs. (3) It must reference at least one actor who experiences a problem. (4) The consequence must be negatively framed (a problem, not a benefit).'\n\nImplemented context: 'Situation: Document discovery takes 15 minutes in a 10,000-item library. Consequence: Knowledge workers waste 2 hours per week searching. Competing needs: Fast search (engineering constraint) vs. broad indexing (product goal). Actor: Sarah (data analyst) spends most of her day on discovery tasks.'",
+      "expected": "pass",
+      "rationale": "A multi-criterion assessment. The implementation satisfies all four criteria. The model must track complex, interrelated requirements without getting lost in the details."
+    },
+    {
+      "id": "cf_09",
+      "title": "Empty or degenerate input",
+      "difficulty": "edge",
+      "tags": [
+        "edge-case",
+        "empty"
+      ],
+      "input": "Acceptance criterion: 'A node must have a non-empty name and at least one field filled.'\n\nImplemented node: {} (an empty object with no name, no fields, nothing.)",
+      "expected": "fail",
+      "rationale": "Degenerate cases (empty, null, or malformed input) should fail clearly. Weak models may crash, hang, or return undefined behavior. This tests robustness."
+    },
+    {
+      "id": "cf_10",
+      "title": "Distractor: irrelevant requirement in context",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "distraction"
+      ],
+      "input": "Acceptance criterion: 'A use case must have a title and at least one actor. Note: The system should be scalable to 1M users, but this is not part of the use case node itself.'\n\nImplemented use case: 'Search documents' with actors 'Alice (PM)' and 'Bob (Data analyst).'",
+      "expected": "pass",
+      "rationale": "The criterion correctly separates the use case requirement (title, actors) from a system-level concern (scalability). The implementation satisfies the use case requirement. Weak models may be distracted by the scalability note and incorrectly fail this."
+    },
+    {
+      "id": "cf_11",
+      "title": "Journal entry balances debit/credit",
+      "difficulty": "easy",
+      "tags": [
+        "accounting",
+        "ERP",
+        "journal-entry"
+      ],
+      "input": "Acceptance criterion: 'A journal entry must have total debits equal to total credits, and must reference valid GL accounts.'\n\nImplemented entry:\nAccount 1100 (Cash): Debit $500\nAccount 2100 (Accounts Payable): Credit $500\n\nGL accounts are configured: 1100 (Asset), 2100 (Liability).",
+      "expected": "pass",
+      "rationale": "Debits ($500) equal credits ($500), both accounts are valid, and the account types are correct for a balanced entry. All criteria met."
+    },
+    {
+      "id": "cf_12",
+      "title": "Three-way match (PO, receipt, invoice)",
+      "difficulty": "medium",
+      "tags": [
+        "accounting",
+        "ERP",
+        "three-way-match",
+        "templated"
+      ],
+      "vars": {
+        "qty": {
+          "type": "int",
+          "min": 5,
+          "max": 50
+        },
+        "received_qty": {
+          "type": "int",
+          "min": 5,
+          "max": 50
+        },
+        "tolerance_pct": {
+          "type": "int",
+          "min": 0,
+          "max": 5
+        }
+      },
+      "input": "Criterion: 'A goods receipt is approved only if the invoice quantity matches the PO quantity within {{tolerance_pct}}% of the PO quantity (a difference of exactly {{tolerance_pct}}% still counts as a match).'\n\nPO: {{qty}} units at $10 each.\nGR (goods receipt): {{received_qty}} units received.\nInvoice: {{received_qty}} units at $10.\n\nIs the receipt approved?",
+      "expected_expr": "Math.abs(vars.received_qty - vars.qty) <= (vars.qty * vars.tolerance_pct / 100) ? 'pass' : 'fail'",
+      "rationale": "Pass when |invoice qty - PO qty| <= tolerance_pct% of the PO quantity, boundary inclusive as the criterion states; at 0% only an exact match passes. Must check percentage math carefully."
+    },
+    {
+      "id": "cf_13",
+      "title": "HR policy: probation period length",
+      "difficulty": "medium",
+      "tags": [
+        "HR",
+        "policy",
+        "probation"
+      ],
+      "input": "Criterion: 'New hires must complete a probation period that ends exactly 90 calendar days after the hire date, during which either party can terminate without cause.'\n\nImplemented: Employee hired 2024-01-15, with probation end date 2024-04-14 and termination allowed without cause until that date.",
+      "expected": "pass",
+      "rationale": "2024 is a leap year: 2024-01-15 + 90 calendar days = 2024-04-14 (16 days to Jan 31, 29 in Feb, 31 in Mar, 14 in Apr). The probation window is correctly configured. Criterion met."
+    },
+    {
+      "id": "cf_14",
+      "title": "Supply chain delivery SLA violation",
+      "difficulty": "hard",
+      "tags": [
+        "supply-chain",
+        "SLA",
+        "edge"
+      ],
+      "input": "Contract SLA: 'Orders placed before 2 PM EST ship the next business day; orders placed after 2 PM are shipped within 2 business days.'\n\nOrder 1: Placed Wednesday 2024-10-02 at 1:30 PM EST. Shipped Friday 2024-10-04.\nOrder 2: Placed Wednesday 2024-10-02 at 2:15 PM EST. Shipped Thursday 2024-10-03.\n\nThe criterion passes only if both orders satisfy the SLA.",
+      "expected": "fail",
+      "rationale": "Order 1 was placed before 2 PM on Wednesday, so it had to ship on the next business day, Thursday 2024-10-03; it shipped Friday, which violates the SLA. Order 2 was placed after 2 PM and shipped one business day later, within the 2-business-day window. Overall fail because Order 1 fails."
+    },
+    {
+      "id": "cf_15",
+      "title": "Physics unit consistency in formula",
+      "difficulty": "edge",
+      "tags": [
+        "physics",
+        "units",
+        "dimensional-analysis"
+      ],
+      "input": "Criterion: 'The kinetic energy formula must use SI units: E in joules, m in kg, v in m/s.'\n\nImplemented formula: E = 0.5 * m * v^2, where m is in grams and v is in cm/s.\n\nDoes the implementation satisfy the criterion?",
+      "expected": "fail",
+      "rationale": "The criterion specifies SI units (kg, m/s) but the implementation uses CGS units (grams, cm/s). The formula is correct dimensionally, but the units do not match the requirement. Criterion not satisfied."
+    }
+  ]
+}

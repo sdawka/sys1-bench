@@ -1,0 +1,200 @@
+{
+  "id": "citation_support_check",
+  "name": "Citation Support Check",
+  "description": "Decide whether a quoted passage from a cited source actually supports the claim a paper or report attributes to it. Misquoted numbers, upgraded hedges (\"may\" becoming \"proves\"), wrong populations, reversed findings and mismatched years or regions are common citation errors that propagate through the literature, so this category tests careful claim-to-source matching across medicine, economics, history, ecology, psychology and engineering standards.",
+  "system_prompt": "You are a citation checker. You will be given a claim as written in a paper or report, and the quoted passage from the source it cites. Decide whether the passage supports the claim as stated. The claim is supported only if the passage matches it in population or subject, time period and region, direction of effect, strength of evidence (hedged language such as \"may\" or \"suggests\" does not support \"proves\" or \"demonstrates\") and any numbers or units. Read the whole passage: a later sentence may reverse, correct or limit an earlier one. A passage that supports only a weaker or narrower version of the claim does not support the claim. A passage that adds a caveat or exception that does not negate the claim still supports it. Answer \"supports\" or \"does_not_support\". Use only the passage; do not rely on outside knowledge of whether the claim is true. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "supports",
+      "does_not_support"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Does the quoted source passage support the claim exactly as stated? Support requires a match in population or subject, time period and region, direction of effect, strength of evidence (hedged words like \"may\" or \"suggests\" do not support \"proves\" or \"demonstrates\"), and any numbers or units. Read the whole passage: a later sentence may reverse, correct or limit an earlier one. A passage supporting only a weaker or narrower version does not support the claim. A caveat or exception that does not negate the claim still supports it. Use only the passage, not outside knowledge.",
+    "criteria": {
+      "true": "The passage supports the claim as stated, matching subject, period, region, direction, evidence strength and numbers.",
+      "false": "The passage does not support the claim as stated: it mismatches, is weaker or narrower, or is reversed or limited elsewhere in the passage."
+    },
+    "true_option": "supports",
+    "false_option": "does_not_support"
+  },
+  "cases": [
+    {
+      "id": "cite_01",
+      "title": "Trial result matches claim",
+      "difficulty": "easy",
+      "tags": [
+        "medicine",
+        "trial"
+      ],
+      "input": "Claim (from a review): \"Daily vitamin D supplementation reduced the incidence of acute respiratory infection in adults with baseline vitamin D deficiency.\"\nSource passage: \"In the 312 participants whose baseline serum 25(OH)D was below 25 nmol/L, supplementation reduced the incidence of acute respiratory infection relative to placebo (incidence rate ratio 0.74, 95% CI 0.58 to 0.94).\"",
+      "expected": "supports",
+      "rationale": "Same population (deficient adults), same direction, and the CI excludes 1, so the claim matches."
+    },
+    {
+      "id": "cite_02",
+      "title": "Source finds no effect, claim says reduced",
+      "difficulty": "easy",
+      "tags": [
+        "economics",
+        "direction"
+      ],
+      "input": "Claim (from a policy brief): \"The county's minimum wage increase reduced teen employment.\"\nSource passage: \"We find no statistically significant change in teen employment following the increase (estimated change +0.4%, standard error 1.1%).\"",
+      "expected": "does_not_support",
+      "rationale": "The passage reports a null effect; the claim asserts a reduction."
+    },
+    {
+      "id": "cite_03",
+      "title": "Hedged correlation upgraded to causal proof",
+      "difficulty": "medium",
+      "tags": [
+        "psychology",
+        "hedging",
+        "causal"
+      ],
+      "input": "Claim (from a paper's introduction): \"Prior work has demonstrated that evening screen time causes shorter sleep in adolescents.\"\nSource passage: \"Our results suggest that screen use before bed may contribute to shorter sleep duration among adolescents, although the cross-sectional design precludes causal inference.\"",
+      "expected": "does_not_support",
+      "rationale": "The source explicitly disclaims causal inference and uses hedged wording; \"demonstrated ... causes\" overstates it."
+    },
+    {
+      "id": "cite_04",
+      "title": "Templated: breeding-pair count copied from source",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "ecology",
+        "numeric"
+      ],
+      "vars": {
+        "a": {
+          "type": "int",
+          "min": 12,
+          "max": 16
+        },
+        "b": {
+          "type": "int",
+          "min": 12,
+          "max": 16
+        }
+      },
+      "input": "Claim (from a conservation report): \"The survey recorded {{a}} breeding pairs of the marsh harrier at the reserve in 2021.\"\nSource passage: \"Across the reserve, we counted {{b}} breeding pairs of marsh harrier in 2021, compared with 9 pairs in 2018.\"",
+      "expected_expr": "vars.a === vars.b ? 'supports' : 'does_not_support'",
+      "rationale": "Supported only when the number in the claim equals the number in the passage; the 2018 figure is a distractor."
+    },
+    {
+      "id": "cite_05",
+      "title": "Later sentence reverses an early finding",
+      "difficulty": "hard",
+      "tags": [
+        "history",
+        "reversal",
+        "long-input"
+      ],
+      "input": "Claim (from a local-history article): \"According to the 1851 survey, the town's population grew over the decade.\"\nSource passage: \"Early returns suggested that the town's population had grown over the decade. After correction for the double counting of seasonal harvest workers who were enumerated in both parishes, the final figures show a decline of 6% between 1841 and 1851.\"",
+      "expected": "does_not_support",
+      "rationale": "The passage first says growth but then corrects it to a decline; the final finding contradicts the claim."
+    },
+    {
+      "id": "cite_06",
+      "title": "Right statistic, wrong country",
+      "difficulty": "hard",
+      "tags": [
+        "economics",
+        "region"
+      ],
+      "input": "Claim (from a news analysis): \"A 2022 national report showed youth unemployment in Spain falling below 20%.\"\nSource passage: \"In 2022, youth unemployment in Portugal fell to 18.9%, its lowest level since the series began. Comparable figures for other southern European countries are discussed in Section 5.\"",
+      "expected": "does_not_support",
+      "rationale": "The passage is about Portugal, not Spain; the number and year match but the region does not."
+    },
+    {
+      "id": "cite_07",
+      "title": "Passage supports only a weaker claim",
+      "difficulty": "edge",
+      "tags": [
+        "psychology",
+        "strength",
+        "overclaim"
+      ],
+      "input": "Claim (from a review): \"Sleep deprivation eliminates working-memory capacity in adults.\"\nSource passage: \"After 24 hours without sleep, participants' digit-span scores fell by an average of 12% relative to their rested baseline (p = 0.02).\"",
+      "expected": "does_not_support",
+      "rationale": "A 12% drop supports \"reduces working memory\", not \"eliminates\"; the claim is far stronger than the evidence."
+    },
+    {
+      "id": "cite_08",
+      "title": "Standard with an exception that does not negate",
+      "difficulty": "edge",
+      "tags": [
+        "engineering",
+        "caveat",
+        "standards"
+      ],
+      "input": "Claim (from a design report): \"The standard requires guardrail posts to be embedded at least 1.1 m in soil.\"\nSource passage: \"Posts shall be embedded a minimum of 1.1 m in compacted soil. Where rock is encountered within this depth, the embedment may be reduced subject to approval by the engineer (see clause 7.4).\"",
+      "expected": "supports",
+      "rationale": "The passage states the 1.1 m minimum for soil. The rock exception is a separate case and does not negate the claim as written, which is about soil."
+    },
+    {
+      "id": "cite_09",
+      "title": "Paraphrase of the same finding",
+      "difficulty": "medium",
+      "tags": [
+        "ecology",
+        "paraphrase"
+      ],
+      "input": "Claim (from a review): \"Insect pollinator abundance was lower near intensively farmed land.\"\nSource passage: \"Bee and hoverfly counts were on average 40% lower in plots within 200 m of intensively managed arable fields than in plots in extensively grazed grassland.\"",
+      "expected": "supports",
+      "rationale": "Bees and hoverflies are insect pollinators, the direction is the same (lower near intensive farmland), and the wording differs only by paraphrase."
+    },
+    {
+      "id": "cite_10",
+      "title": "Different patient population",
+      "difficulty": "hard",
+      "tags": [
+        "medicine",
+        "population"
+      ],
+      "input": "Claim (from a guideline summary): \"Metformin reduced major cardiovascular events in patients with type 1 diabetes.\"\nSource passage: \"In this trial of 4,100 adults with type 2 diabetes, metformin reduced major cardiovascular events (hazard ratio 0.81, 95% CI 0.70 to 0.94). Patients with type 1 diabetes were excluded.\"",
+      "expected": "does_not_support",
+      "rationale": "The evidence concerns type 2 diabetes and explicitly excludes type 1, so it does not support the type 1 claim."
+    },
+    {
+      "id": "cite_11",
+      "title": "Templated: \"at least X%\" against reported figure",
+      "difficulty": "hard",
+      "tags": [
+        "templated",
+        "economics",
+        "numeric"
+      ],
+      "vars": {
+        "a": {
+          "type": "int",
+          "min": 30,
+          "max": 40
+        },
+        "b": {
+          "type": "int",
+          "min": 30,
+          "max": 40
+        }
+      },
+      "input": "Claim (from an economics paper): \"At least {{a}}% of surveyed firms raised prices in the quarter.\"\nSource passage: \"In our survey of 1,200 firms, {{b}}% reported raising prices during the quarter.\"",
+      "expected_expr": "vars.b >= vars.a ? 'supports' : 'does_not_support'",
+      "rationale": "\"At least a%\" is true exactly when the reported share b is a or higher; a lower reported figure cannot support the lower bound."
+    },
+    {
+      "id": "cite_12",
+      "title": "Percentage points versus percent",
+      "difficulty": "edge",
+      "tags": [
+        "public-health",
+        "units",
+        "numeric"
+      ],
+      "input": "Claim (from a report): \"The policy cut smoking prevalence by 12%.\"\nSource passage: \"Smoking prevalence fell from 30% to 18% over the study period, a reduction of 12 percentage points.\"",
+      "expected": "does_not_support",
+      "rationale": "A fall from 30% to 18% is a 12 percentage-point drop, which is a 40% relative reduction; \"12%\" misstates the result by confusing the units."
+    }
+  ]
+}

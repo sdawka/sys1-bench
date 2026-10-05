@@ -1,0 +1,254 @@
+{
+  "id": "clarity_score",
+  "name": "Clarity Score",
+  "description": "Rate the clarity of a specification, node description, or design artifact on a 1-5 scale. Clarity combines precision, testability, and grounding in concrete examples. This matters for knowledge-graph quality: vague nodes create maintenance burden and cause ambiguity downstream in the system.",
+  "system_prompt": "You are a clarity auditor. Rate the clarity of the given text on a 1-5 scale using this rubric: 1 = contradictory or empty jargon with no grounding; 2 = mostly abstract concepts with minimal concrete detail; 3 = adequate but contains vague terms or missing context; 4 = clear and mostly testable with minor ambiguities; 5 = precise, testable, grounded in concrete examples or metrics. Tolerance is 1 point (a rating within 1 point of ground truth is correct). Respond with ONLY a JSON object: {\"decision\": <number 1-5>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "number",
+    "min": 1,
+    "max": 5,
+    "tolerance": 1
+  },
+  "decision": {
+    "primitive": "score",
+    "instructions": "Rate the clarity of the given text on a 1-5 scale: how precise, testable and concretely grounded it is.",
+    "criteria": [
+      "1: Contradictory or empty jargon with no grounding.",
+      "2: Mostly abstract concepts with minimal concrete detail.",
+      "3: Adequate but contains vague terms or missing context.",
+      "4: Clear and mostly testable with minor ambiguities.",
+      "5: Precise, testable, grounded in concrete examples or metrics."
+    ],
+    "level_values": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "cases": [
+    {
+      "id": "cs_01",
+      "title": "Highly clear and concrete",
+      "difficulty": "easy",
+      "tags": [
+        "clear",
+        "testable"
+      ],
+      "input": "Bropilot node description for a persona: 'Alice is a Product Manager at a healthcare startup with 5 years of experience. She owns the data pipeline roadmap and makes weekly trade-off decisions between integrating new data sources and maintaining API stability. Her main frustration is that the current schema does not capture temporal lineage, forcing her to manually track changes in email threads.'",
+      "expected": 5,
+      "rationale": "This description is precise (role, tenure, decision-making authority), grounded (weekly cadence, email tracking), and testable (temporal lineage is a specific gap). A reader could build on this description immediately."
+    },
+    {
+      "id": "cs_02",
+      "title": "Contradictory and empty",
+      "difficulty": "easy",
+      "tags": [
+        "unclear",
+        "contradiction"
+      ],
+      "input": "Bropilot goal node: 'The goal is to improve system performance while maintaining backward compatibility and reducing feature scope. We must be user-centric and technology-driven. Everything matters equally.'",
+      "expected": 1,
+      "rationale": "This description contains unresolved contradictions (scope reduction vs. feature richness), empty platitudes ('everything matters equally' means nothing), and no concrete metrics. A reader cannot act on this."
+    },
+    {
+      "id": "cs_03",
+      "title": "Precise but dense",
+      "difficulty": "medium",
+      "tags": [
+        "technical",
+        "jargon"
+      ],
+      "input": "Bropilot module description: 'The QueryOptimizer picks a join order using cost-based estimation from per-column histograms (64 buckets, refreshed nightly). For queries joining up to 8 tables it enumerates join orders exhaustively with dynamic programming; above 8 tables it falls back to a greedy heuristic. Target: planning time under 50 ms at p95 for production queries. Output is a DAG of physical operators, pipelined within fragments and batch-exchanged between fragments.'",
+      "expected": 4,
+      "rationale": "The text is precise and testable: concrete numbers (64 buckets, 8 tables, 50 ms p95) and a defined output. Minor ambiguities keep it from a clean 5: 'production queries' is not defined, the greedy heuristic is unspecified, and terms like 'fragments' are left unexplained. Weak models punish the jargon and score it 2."
+    },
+    {
+      "id": "cs_04",
+      "title": "Contradictory and vague",
+      "difficulty": "edge",
+      "tags": [
+        "contradiction",
+        "Protopilot"
+      ],
+      "input": "Protopilot context: 'Search should be instant but also take as long as it needs to be fully thorough. It must be lightweight yet handle everything users throw at it, work completely offline while always showing the latest data from the cloud, and generally feel seamless and best-in-class.'",
+      "expected": 1,
+      "rationale": "Every requirement contradicts another (instant vs as long as it needs; fully offline vs always latest cloud data; lightweight vs handle everything), and the rest is ungrounded buzzwords ('seamless', 'best-in-class') with no metrics. That is the rubric's 1. With tolerance 1 only 2 is also accepted; any score of 3+ means the model missed the contradictions."
+    },
+    {
+      "id": "cs_05",
+      "title": "Clarity varies by specificity",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "specificity"
+      ],
+      "vars": {
+        "specificity": {
+          "type": "choice",
+          "options": [
+            "Users want to search.",
+            "Users want to search across documents by keyword and filter by date.",
+            "Alice and Bob need to search a 10,000-document library by title/content keywords, filter by creation date (within the last 30 days), and sort by relevance. A typical search returns 50–200 results in under 2 seconds."
+          ]
+        }
+      },
+      "input": "Bropilot use case description: '{{specificity}}'",
+      "expected_expr": "vars.specificity.startsWith('Users want to search.') ? 2 : (vars.specificity.startsWith('Users want to search across') ? 3 : 5)",
+      "rationale": "Clarity increases sharply with concrete detail: metrics, timelines, volume, personas. The model must score along this spectrum."
+    },
+    {
+      "id": "cs_06",
+      "title": "Clarity varies by structure",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "structure"
+      ],
+      "vars": {
+        "structure": {
+          "type": "choice",
+          "options": [
+            "If we improve the interface, more users will be happy and the product will be better.",
+            "Assumption: Improving the interface (specific: clearer error messages, fewer clicks) will increase user satisfaction. This assumes users find current errors confusing.",
+            "Assumption: Providing context-specific error messages (rather than generic codes) will reduce support tickets by 20%. This assumes the current root cause is user confusion (testable via error log analysis). Alternative: Support overhead is driven by onboarding, not errors."
+          ]
+        }
+      },
+      "input": "Protopilot assumption: '{{structure}}'",
+      "expected_expr": "vars.structure.startsWith('If we improve') ? 1 : (vars.structure.indexOf('specific: clearer') >= 0 ? 3 : 5)",
+      "rationale": "Structure matters: explicit assumptions with alternatives and testing criteria are far clearer than vague aspirations. The model must prefer specificity and falsifiability."
+    },
+    {
+      "id": "cs_07",
+      "title": "Mediocre: somewhat vague",
+      "difficulty": "medium",
+      "tags": [
+        "unclear",
+        "vague"
+      ],
+      "input": "Bropilot term definition: 'Integrity refers to the consistency of data across the system. It is important for correctness and user trust.'",
+      "expected": 3,
+      "rationale": "This is not empty (it defines integrity as data consistency), but it lacks grounding. What is 'consistency'? How is it measured? When does it matter most? It needs examples."
+    },
+    {
+      "id": "cs_08",
+      "title": "Low clarity: jargon without grounding",
+      "difficulty": "medium",
+      "tags": [
+        "unclear",
+        "jargon"
+      ],
+      "input": "Bropilot goal node: 'Synergize cross-functional alignment to leverage semantic coherence and drive paradigm-shifting innovation outcomes.'",
+      "expected": 2,
+      "rationale": "Pure jargon with no concrete meaning. No reader knows what to build or test. A weak model might score this higher if fooled by the formal tone."
+    },
+    {
+      "id": "cs_09",
+      "title": "Edge case: mostly empty with one clear sentence",
+      "difficulty": "edge",
+      "tags": [
+        "edge-case",
+        "sparse"
+      ],
+      "input": "Protopilot assumption: 'Our assumption is unclear. Users want to achieve their goals faster. Everything else is still being figured out.'",
+      "expected": 1,
+      "rationale": "One clear sentence ('Users want to achieve their goals faster') is embedded in admitted vagueness. This is not 'somewhat clear' — it lacks structure and confidence. Clarity requires coherence, not just one good sentence."
+    },
+    {
+      "id": "cs_10",
+      "title": "Mixed clarity: some parts clear, some vague",
+      "difficulty": "hard",
+      "tags": [
+        "mixed",
+        "bropilot"
+      ],
+      "input": "Bropilot module: 'The SearchService handles user queries. It receives a query string and returns results. Performance is critical. The exact algorithm is still experimental and undefined. Caching is important because searches are expensive. We may use Redis or similar.'",
+      "expected": 2,
+      "rationale": "Clear parts: 'receives query string, returns results.' Vague parts: 'algorithm is undefined,' 'may use Redis or similar,' 'performance is critical' (no metric). Overall clarity is low because key details are uncertain. Weak models may average to 3; correct scoring recognizes that indefiniteness undermines the whole."
+    },
+    {
+      "id": "cs_11",
+      "title": "GL account classification rule",
+      "difficulty": "easy",
+      "tags": [
+        "accounting",
+        "clarity",
+        "precise"
+      ],
+      "input": "Account classification rule: 'Accounts in the range 1000–1999 are Assets. Accounts 2000–2999 are Liabilities. Accounts 3000–3999 are Equity. 4000+ are P&L (revenue/expense). Use these ranges to determine account type when posting transactions.'",
+      "expected": 5,
+      "rationale": "This is precise, testable, and has concrete numeric bounds. A reader knows exactly where any account belongs. No ambiguity."
+    },
+    {
+      "id": "cs_12",
+      "title": "Supply chain delivery expectation",
+      "difficulty": "medium",
+      "tags": [
+        "supply-chain",
+        "vague",
+        "edge"
+      ],
+      "input": "Process description: 'Deliver orders quickly, based on inventory availability and the customer's location. Priority goes to big orders and loyal customers. The company strives for efficiency and customer satisfaction.'",
+      "expected": 2,
+      "rationale": "Mostly abstract: it names some factors (inventory availability, customer location, order size, loyalty) but gives no metrics for 'quickly', 'big', 'loyal' or 'priority', and the last sentence is a platitude. Minimal concrete detail, so 2 (1 or 3 also within tolerance)."
+    },
+    {
+      "id": "cs_13",
+      "title": "Biology research hypothesis",
+      "difficulty": "medium",
+      "tags": [
+        "biology",
+        "templated",
+        "hypothesis"
+      ],
+      "vars": {
+        "organism": {
+          "type": "choice",
+          "options": [
+            "E. coli",
+            "Saccharomyces cerevisiae",
+            "Bacillus subtilis"
+          ]
+        },
+        "condition": {
+          "type": "choice",
+          "options": [
+            "high salinity",
+            "low phosphate",
+            "heat stress"
+          ]
+        }
+      },
+      "input": "Hypothesis: 'In {{organism}}, exposure to {{condition}} will reduce growth rate by at least 25% compared to control conditions, as measured by optical density (OD600) at 24 hours.'",
+      "expected_expr": "vars.organism && vars.condition ? 4 : 1",
+      "rationale": "The hypothesis names a specific microorganism grown in liquid culture, a defined stress condition, a quantified prediction (at least 25%), and a metric with a time point (OD600 at 24h). Clear and testable for every filled-in combination. Expected 4 (tolerance accepts 3-5); it only leaves the exact stress dose and control conditions unstated."
+    },
+    {
+      "id": "cs_14",
+      "title": "Economics policy statement",
+      "difficulty": "hard",
+      "tags": [
+        "economics",
+        "contradictory",
+        "hard"
+      ],
+      "input": "Policy: 'We aim to maximize profit while minimizing costs and prices. Growth should be rapid yet sustainable. We will serve all market segments equally while focusing on high-margin customers. All employees are valued equally but compensation will be performance-based.'",
+      "expected": 1,
+      "rationale": "Multiple contradictions: maximize profit vs. minimize prices; rapid growth vs. sustainability; serve all equally vs. focus on high-margin; equal value vs. performance-based pay. These cannot all be true simultaneously. Unactionable."
+    },
+    {
+      "id": "cs_15",
+      "title": "History timeline description",
+      "difficulty": "medium",
+      "tags": [
+        "history",
+        "moderate-clarity"
+      ],
+      "input": "Timeline summary: 'The Industrial Revolution began in Britain in the late 1700s with innovations in textile manufacturing, coal mining, and steam power. By the 1800s, factories spread across Europe and North America. Labor conditions were harsh, wages were low, and child labor was common. Working-class movements emerged in response.'",
+      "expected": 3,
+      "rationale": "The description includes dates, regions, technologies, and effects, but lacks grounding: Which specific innovations? What counts as 'harsh'? Which working-class movements? Adequate but not concrete enough for a history paper without further research."
+    }
+  ]
+}

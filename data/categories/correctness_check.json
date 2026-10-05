@@ -1,0 +1,261 @@
+{
+  "id": "correctness_check",
+  "name": "Correctness Check",
+  "description": "Decide whether a concrete claim about a code snippet, a Bropilot graph, a graph transform, a Bropilot query result, or a small calculation is correct. Every case is mechanically verifiable (the snippets were executed), so this measures whether a model actually traces code and data instead of pattern-matching on plausible-looking claims. In Bropilot this is the judgement behind invariant checks (referential integrity, cascade deletes), query previews and cost estimates before running an eval.",
+  "system_prompt": "You are a meticulous code and data reviewer for Bropilot, a knowledge-graph studio whose graphs are { nodes: [{ id, kind, title, ... }], edges: [{ id, srcId, dstId, type }] }.\nEach input gives an artifact (TypeScript code, a graph, an input/output pair, a query with its result, or a calculation) and a CLAIM about it. Decide whether the CLAIM is correct.\nIMPORTANT: Judge ONLY against the data shown in the input. Do not use outside knowledge of how Bropilot behaves in general.\nRules:\n1. Judge only against the artifact shown. Universal wording such as \"every\", \"always\" or \"never\" quantifies over the shown data, not over all possible graphs or the wider world; if it holds for everything shown, the claim is correct.\n2. Trace code exactly as written, including off-by-one bounds, string matching and the order of operations. Do not assume the author meant something else.\n3. Identifiers are case-sensitive exact strings.\n4. If any part of a compound claim is false, the claim is incorrect.\ndecision must be \"correct\" or \"incorrect\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "correct",
+      "incorrect"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Is the CLAIM about the shown artifact correct? Artifacts come from Bropilot, a knowledge-graph studio whose graphs are { nodes: [{ id, kind, title, ... }], edges: [{ id, srcId, dstId, type }] }; an artifact may be TypeScript code, a graph, an input/output pair, a query with its result, or a calculation. Rules: (1) Judge ONLY against the data shown, not outside knowledge of Bropilot. Universal words like \"every\", \"always\", \"never\" quantify over the shown data; if it holds for everything shown, the claim is correct. (2) Trace code exactly as written, including off-by-one bounds, string matching and order of operations; do not assume the author meant something else. (3) Identifiers are case-sensitive exact strings. (4) If any part of a compound claim is false, the claim is incorrect.",
+    "criteria": {
+      "true": "Correct: every part of the claim holds for the artifact exactly as shown.",
+      "false": "Incorrect: at least one part of the claim is false for the artifact as shown."
+    },
+    "true_option": "correct",
+    "false_option": "incorrect"
+  },
+  "cases": [
+    {
+      "id": "cor_01",
+      "title": "nodeIdFor kebab-cases a padded title",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "typescript",
+        "string"
+      ],
+      "input": "Code:\n```ts\nfunction nodeIdFor(kind: string, title: string): string {\n  return kind + '-' + title.trim().toLowerCase().replace(/\\s+/g, '-');\n}\n```\n\nCLAIM: nodeIdFor('persona', '  Field   Sales Rep ') returns 'persona-field-sales-rep'.",
+      "expected": "correct",
+      "rationale": "trim() removes the outer spaces, toLowerCase() gives 'field   sales rep', and /\\s+/g collapses each whitespace run (including the triple space) to one '-'. Executed with node: 'persona-field-sales-rep'. A weak model may think the triple space yields '---'."
+    },
+    {
+      "id": "cor_02",
+      "title": "Off-by-one in inclusive int()",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "typescript",
+        "off-by-one",
+        "sim"
+      ],
+      "input": "Code (from a simulator RNG helper):\n```ts\nfunction int(rnd: () => number, min: number, max: number): number {\n  return min + Math.floor(rnd() * (max - min));\n}\n```\n\nrnd() returns values in [0, 1).\n\nCLAIM: int(rnd, 1, 6) can return every integer from 1 to 6 inclusive.",
+      "expected": "incorrect",
+      "rationale": "rnd()*(6-1) is in [0,5), so floor is 0..4 and the result is 1..5; 6 is unreachable. The real Bropilot helper uses (max - min + 1); this variant drops the +1. Verified by sampling with node: reachable values are 1..5."
+    },
+    {
+      "id": "cor_03",
+      "title": "Referential integrity holds",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "graph",
+        "integrity"
+      ],
+      "input": "Graph:\n{\n  \"nodes\": [\n    {\n      \"id\": \"persona-shop-owner\",\n      \"kind\": \"persona\",\n      \"title\": \"Shop owner\"\n    },\n    {\n      \"id\": \"usecase-reorder-stock\",\n      \"kind\": \"usecase\",\n      \"title\": \"Reorder stock\"\n    },\n    {\n      \"id\": \"module-inventory\",\n      \"kind\": \"module\",\n      \"title\": \"Inventory\"\n    },\n    {\n      \"id\": \"requirement-low-stock-alert\",\n      \"kind\": \"requirement\",\n      \"title\": \"Low-stock alert\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e1\",\n      \"srcId\": \"persona-shop-owner\",\n      \"dstId\": \"usecase-reorder-stock\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e2\",\n      \"srcId\": \"module-inventory\",\n      \"dstId\": \"usecase-reorder-stock\",\n      \"type\": \"satisfies\"\n    },\n    {\n      \"id\": \"e3\",\n      \"srcId\": \"module-inventory\",\n      \"dstId\": \"requirement-low-stock-alert\",\n      \"type\": \"satisfies\"\n    },\n    {\n      \"id\": \"e4\",\n      \"srcId\": \"requirement-low-stock-alert\",\n      \"dstId\": \"module-inventory\",\n      \"type\": \"constrains\"\n    }\n  ]\n}\n\nCLAIM: Every edge's srcId and dstId exists among the node ids.",
+      "expected": "correct",
+      "rationale": "All four edges reference only persona-shop-owner, usecase-reorder-stock, module-inventory and requirement-low-stock-alert, all present. The mutual satisfies/constrains pair is unusual but irrelevant to integrity."
+    },
+    {
+      "id": "cor_04",
+      "title": "Dangling edge differs only by case",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "graph",
+        "integrity",
+        "case-sensitivity",
+        "near-miss"
+      ],
+      "input": "Graph:\n{\n  \"nodes\": [\n    {\n      \"id\": \"persona-tester\",\n      \"kind\": \"persona\",\n      \"title\": \"Tester\"\n    },\n    {\n      \"id\": \"usecase-Checkout\",\n      \"kind\": \"usecase\",\n      \"title\": \"Checkout\"\n    },\n    {\n      \"id\": \"module-payments\",\n      \"kind\": \"module\",\n      \"title\": \"Payments\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e1\",\n      \"srcId\": \"persona-tester\",\n      \"dstId\": \"usecase-Checkout\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e2\",\n      \"srcId\": \"module-payments\",\n      \"dstId\": \"usecase-checkout\",\n      \"type\": \"satisfies\"\n    }\n  ]\n}\n\nCLAIM: Every edge's srcId and dstId exists among the node ids.",
+      "expected": "incorrect",
+      "rationale": "Edge e2 points at 'usecase-checkout' but the node id is 'usecase-Checkout'. Ids are exact strings, so e2 dangles. Models that normalise case or skim say correct."
+    },
+    {
+      "id": "cor_05",
+      "title": "Cascade delete leaves an incoming edge",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "graph",
+        "transform"
+      ],
+      "input": "Transform: deleteNode(graph, id) must remove the node with that id AND every edge whose srcId or dstId equals that id. Nothing else changes.\n\nInput graph:\n{\n  \"nodes\": [\n    {\n      \"id\": \"module-auth\",\n      \"kind\": \"module\",\n      \"title\": \"Auth\"\n    },\n    {\n      \"id\": \"module-db\",\n      \"kind\": \"module\",\n      \"title\": \"Database\"\n    },\n    {\n      \"id\": \"module-api\",\n      \"kind\": \"module\",\n      \"title\": \"API\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e1\",\n      \"srcId\": \"module-auth\",\n      \"dstId\": \"module-db\",\n      \"type\": \"uses\"\n    },\n    {\n      \"id\": \"e2\",\n      \"srcId\": \"module-api\",\n      \"dstId\": \"module-auth\",\n      \"type\": \"uses\"\n    },\n    {\n      \"id\": \"e3\",\n      \"srcId\": \"module-api\",\n      \"dstId\": \"module-db\",\n      \"type\": \"uses\"\n    }\n  ]\n}\n\nCall: deleteNode(input, 'module-auth')\n\nOutput produced:\n{\n  \"nodes\": [\n    {\n      \"id\": \"module-db\",\n      \"kind\": \"module\",\n      \"title\": \"Database\"\n    },\n    {\n      \"id\": \"module-api\",\n      \"kind\": \"module\",\n      \"title\": \"API\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e2\",\n      \"srcId\": \"module-api\",\n      \"dstId\": \"module-auth\",\n      \"type\": \"uses\"\n    },\n    {\n      \"id\": \"e3\",\n      \"srcId\": \"module-api\",\n      \"dstId\": \"module-db\",\n      \"type\": \"uses\"\n    }\n  ]\n}\n\nCLAIM: The output is the correct result of this transform.",
+      "expected": "incorrect",
+      "rationale": "e1 (outgoing from module-auth) was removed, but e2 (module-api uses module-auth) has dstId 'module-auth' and must also be removed. The output keeps a dangling incoming edge."
+    },
+    {
+      "id": "cor_06",
+      "title": "Query with negated satisfies: implements is not satisfies",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "query",
+        "negation",
+        "distractor"
+      ],
+      "input": "Bropilot query semantics: patterns are { s, p, o } triples over edges srcId -[type]-> dstId. A ref { var, kind } binds a variable to a node of that kind (kind optional). A p prefixed with '^' means the edge is traversed in reverse (s is the edge's dstId, o is its srcId). A pattern with not: true is evaluated after positive patterns and keeps a binding only if NO match exists for it. select lists which variables are returned.\n\nGraph:\n{\n  \"nodes\": [\n    {\n      \"id\": \"persona-shopper\",\n      \"kind\": \"persona\",\n      \"title\": \"Shopper\"\n    },\n    {\n      \"id\": \"persona-admin\",\n      \"kind\": \"persona\",\n      \"title\": \"Admin\"\n    },\n    {\n      \"id\": \"usecase-checkout\",\n      \"kind\": \"usecase\",\n      \"title\": \"Checkout\"\n    },\n    {\n      \"id\": \"usecase-refund\",\n      \"kind\": \"usecase\",\n      \"title\": \"Refund\"\n    },\n    {\n      \"id\": \"usecase-browse\",\n      \"kind\": \"usecase\",\n      \"title\": \"Browse catalog\"\n    },\n    {\n      \"id\": \"usecase-wishlist\",\n      \"kind\": \"usecase\",\n      \"title\": \"Wishlist\"\n    },\n    {\n      \"id\": \"module-payments\",\n      \"kind\": \"module\",\n      \"title\": \"Payments\"\n    },\n    {\n      \"id\": \"module-catalog\",\n      \"kind\": \"module\",\n      \"title\": \"Catalog\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e1\",\n      \"srcId\": \"persona-shopper\",\n      \"dstId\": \"usecase-checkout\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e2\",\n      \"srcId\": \"persona-shopper\",\n      \"dstId\": \"usecase-browse\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e3\",\n      \"srcId\": \"persona-admin\",\n      \"dstId\": \"usecase-refund\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e4\",\n      \"srcId\": \"module-payments\",\n      \"dstId\": \"usecase-checkout\",\n      \"type\": \"satisfies\"\n    },\n    {\n      \"id\": \"e5\",\n      \"srcId\": \"module-catalog\",\n      \"dstId\": \"usecase-browse\",\n      \"type\": \"implements\"\n    },\n    {\n      \"id\": \"e6\",\n      \"srcId\": \"module-payments\",\n      \"dstId\": \"module-catalog\",\n      \"type\": \"uses\"\n    },\n    {\n      \"id\": \"e7\",\n      \"srcId\": \"module-catalog\",\n      \"dstId\": \"usecase-wishlist\",\n      \"type\": \"satisfies\"\n    }\n  ]\n}\n\nQuery:\n{\n  \"match\": [\n    {\n      \"s\": {\n        \"var\": \"p\",\n        \"kind\": \"persona\"\n      },\n      \"p\": \"motivates\",\n      \"o\": {\n        \"var\": \"u\",\n        \"kind\": \"usecase\"\n      }\n    },\n    {\n      \"s\": {\n        \"var\": \"u\"\n      },\n      \"p\": \"^satisfies\",\n      \"o\": {\n        \"var\": \"m\",\n        \"kind\": \"module\"\n      },\n      \"not\": true\n    }\n  ],\n  \"select\": [\n    \"u\"\n  ]\n}\n\nClaimed result (set of u values): [\"usecase-refund\"]\n\nCLAIM: The claimed result is exactly the set of u values this query returns.",
+      "expected": "incorrect",
+      "rationale": "Persona-motivated usecases are checkout, browse and refund (wishlist has no motivates edge). Checkout has module-payments satisfies; browse only has module-catalog IMPLEMENTS, which is a different edge type, so browse survives the not pattern. True set: browse and refund. Weak models conflate implements with satisfies or include wishlist."
+    },
+    {
+      "id": "cor_07",
+      "title": "Eval run budget (templated)",
+      "difficulty": "hard",
+      "tags": [
+        "arithmetic",
+        "cost",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "n": {
+          "type": "int",
+          "min": 5,
+          "max": 15
+        },
+        "k": {
+          "type": "choice",
+          "options": [
+            "1",
+            "3",
+            "5"
+          ]
+        }
+      },
+      "input": "An eval run sends {{n}} cases to one model, with {{k}} samples per case. Every call costs exactly $0.002. The budget is $0.06 and \"fits within\" means total cost <= budget.\n\nCLAIM: The run fits within the $0.06 budget.",
+      "expected_expr": "vars.n * Number(vars.k) * 2 <= 60 ? 'correct' : 'incorrect'",
+      "rationale": "Total = n * k * $0.002; fits iff n*k <= 30. E.g. n=10,k=3 is exactly $0.06 (fits, inclusive boundary); n=7,k=5 is $0.07 (does not). Integer arithmetic in expected_expr avoids floating-point error."
+    },
+    {
+      "id": "cor_08",
+      "title": "Absolute phrasing true for shown data",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "graph",
+        "quantifier",
+        "distractor"
+      ],
+      "input": "Judge only against the graph shown below: 'every' and 'always' refer to the nodes in this graph, not to all possible graphs.\n\nGraph:\n{\n  \"nodes\": [\n    {\n      \"id\": \"goal-faster-quotes\",\n      \"kind\": \"goal\",\n      \"title\": \"Faster quotes\",\n      \"props\": {\n        \"metric\": \"Median quote time under 2 min\"\n      }\n    },\n    {\n      \"id\": \"goal-fewer-errors\",\n      \"kind\": \"goal\",\n      \"title\": \"Fewer pricing errors\",\n      \"props\": {\n        \"metric\": \"Pricing corrections per week below 3\"\n      }\n    },\n    {\n      \"id\": \"goal-repeat-orders\",\n      \"kind\": \"goal\",\n      \"title\": \"Repeat orders\",\n      \"props\": {\n        \"metric\": \"30-day reorder rate above 40%\"\n      }\n    },\n    {\n      \"id\": \"hypothesis-mobile-first\",\n      \"kind\": \"hypothesis\",\n      \"title\": \"Mobile-first quoting\",\n      \"props\": {\n        \"belief\": \"Reps quote on the road\",\n        \"validation\": \"\"\n      }\n    },\n    {\n      \"id\": \"persona-field-rep\",\n      \"kind\": \"persona\",\n      \"title\": \"Field sales rep\",\n      \"props\": {\n        \"role\": \"Sales rep on the road\"\n      }\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e1\",\n      \"srcId\": \"persona-field-rep\",\n      \"dstId\": \"goal-faster-quotes\",\n      \"type\": \"motivates\"\n    }\n  ]\n}\n\nCLAIM: Every goal always has a non-empty success metric (props.metric).",
+      "expected": "correct",
+      "rationale": "All three goal nodes have a non-empty props.metric. The hypothesis with an empty validation field is a distractor (hypotheses are not goals). Per the system rule, 'every/always' quantifies over the shown data, so the claim is correct even though Bropilot does not enforce metrics in general."
+    },
+    {
+      "id": "cor_09",
+      "title": "parseP with misplaced modifiers",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "query",
+        "typescript",
+        "string",
+        "near-miss"
+      ],
+      "input": "Code (Bropilot query engine):\n```ts\nfunction parseP(p: string): { type: string; inverse: boolean; transitive: boolean } {\n  let s = p;\n  let inverse = false;\n  let transitive = false;\n  if (s.startsWith('^')) { inverse = true; s = s.slice(1); }\n  if (s.endsWith('+')) { transitive = true; s = s.slice(0, -1); }\n  return { type: s, inverse, transitive };\n}\n```\n\nCLAIM: parseP('motivates+^') returns { type: 'motivates', inverse: true, transitive: true }.",
+      "expected": "incorrect",
+      "rationale": "'motivates+^' does not start with '^' and does not end with '+' (it ends with '^'), so neither branch fires: the result is { type: 'motivates+^', inverse: false, transitive: false }. Executed with node. Models that recognise the modifiers but ignore their required positions say correct."
+    },
+    {
+      "id": "cor_10",
+      "title": "Edge-count lower bound (templated)",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "graph",
+        "counting",
+        "templated",
+        "off-by-one"
+      ],
+      "vars": {
+        "m": {
+          "type": "int",
+          "min": 5,
+          "max": 9
+        }
+      },
+      "input": "Graph:\n{\n  \"nodes\": [\n    {\n      \"id\": \"purpose-protopilot\",\n      \"kind\": \"purpose\",\n      \"title\": \"Protopilot purpose\"\n    },\n    {\n      \"id\": \"goal-learn-fast\",\n      \"kind\": \"goal\",\n      \"title\": \"Learn fast\"\n    },\n    {\n      \"id\": \"persona-author\",\n      \"kind\": \"persona\",\n      \"title\": \"Prototype author\"\n    },\n    {\n      \"id\": \"usecase-share-test\",\n      \"kind\": \"usecase\",\n      \"title\": \"Share test\"\n    },\n    {\n      \"id\": \"capability-publish\",\n      \"kind\": \"capability\",\n      \"title\": \"Publish prototype test\"\n    },\n    {\n      \"id\": \"module-core\",\n      \"kind\": \"module\",\n      \"title\": \"core\"\n    },\n    {\n      \"id\": \"module-rpc\",\n      \"kind\": \"module\",\n      \"title\": \"rpc\"\n    }\n  ],\n  \"edges\": [\n    {\n      \"id\": \"e1\",\n      \"srcId\": \"purpose-protopilot\",\n      \"dstId\": \"goal-learn-fast\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e2\",\n      \"srcId\": \"purpose-protopilot\",\n      \"dstId\": \"persona-author\",\n      \"type\": \"serves\"\n    },\n    {\n      \"id\": \"e3\",\n      \"srcId\": \"persona-author\",\n      \"dstId\": \"usecase-share-test\",\n      \"type\": \"motivates\"\n    },\n    {\n      \"id\": \"e4\",\n      \"srcId\": \"capability-publish\",\n      \"dstId\": \"persona-author\",\n      \"type\": \"serves\"\n    },\n    {\n      \"id\": \"e5\",\n      \"srcId\": \"module-core\",\n      \"dstId\": \"capability-publish\",\n      \"type\": \"implements\"\n    },\n    {\n      \"id\": \"e6\",\n      \"srcId\": \"module-rpc\",\n      \"dstId\": \"module-core\",\n      \"type\": \"uses\"\n    },\n    {\n      \"id\": \"e7\",\n      \"srcId\": \"module-core\",\n      \"dstId\": \"usecase-share-test\",\n      \"type\": \"satisfies\"\n    }\n  ]\n}\n\nCLAIM: This graph has at least {{m}} edges.",
+      "expected_expr": "vars.m <= 7 ? 'correct' : 'incorrect'",
+      "rationale": "The graph has exactly 7 edges (e1..e7). \"At least m\" is correct for m <= 7 and incorrect for 8 or 9. The 7-node count is a distractor: models that count nodes or are off by one fail the boundary values."
+    },
+    {
+      "id": "cor_11",
+      "title": "Accounting three-way match calculation",
+      "difficulty": "easy",
+      "tags": [
+        "accounting",
+        "arithmetic"
+      ],
+      "input": "Three-way match rule: PO qty = Goods Receipt qty = Invoice qty (within 2% tolerance).\n\nData:\nPO: 100 units at $5.00 each = $500.00\nGR: 99 units received\nInvoice: 99 units × $5.00 = $495.00\n\nCLAIM: This passes the three-way match (all within 2%).",
+      "expected": "correct",
+      "rationale": "GR qty (99) vs PO (100) is 1 unit difference = 1%, within 2%. GR qty (99) vs Invoice (99) = 0% match. Invoice total ($495) matches 99×$5. All three match. Claim is correct."
+    },
+    {
+      "id": "cor_12",
+      "title": "Physics projectile motion",
+      "difficulty": "medium",
+      "tags": [
+        "physics",
+        "calculation"
+      ],
+      "input": "Problem: A ball is launched vertically at 20 m/s. Ignoring air resistance and using g = 10 m/s², what is the maximum height?\n\nFormula: h_max = v₀² / (2g)\n\nCLAIM: h_max = (20² / (2 × 10)) = (400 / 20) = 20 meters.",
+      "expected": "correct",
+      "rationale": "The formula is correct, and the arithmetic is correct: 20² = 400, 2 × 10 = 20, 400 / 20 = 20 m. Claim is correct."
+    },
+    {
+      "id": "cor_13",
+      "title": "Supply chain inventory count",
+      "difficulty": "medium",
+      "tags": [
+        "supply-chain",
+        "counting",
+        "templated"
+      ],
+      "vars": {
+        "on_hand": {
+          "type": "int",
+          "min": 50,
+          "max": 100
+        },
+        "counted": {
+          "type": "int",
+          "min": 50,
+          "max": 100
+        }
+      },
+      "input": "Count tolerance policy: the variance |on hand − counted| is within tolerance if it is no more than 5 units or no more than 5% of the on-hand quantity, whichever allowance is larger.\n\nInventory record: {{on_hand}} units on hand.\nPhysical count: {{counted}} units counted.\n\nCLAIM: The count variance is within tolerance.",
+      "expected_expr": "Math.abs(vars.on_hand - vars.counted) <= 5 || Math.abs((vars.on_hand - vars.counted) / vars.on_hand * 100) <= 5 ? 'correct' : 'incorrect'",
+      "rationale": "Tolerance is max(5 units, 5% of on-hand), inclusive. For on-hand 50..100, 5% is at most 5 units, so the claim is correct exactly when |on_hand − counted| <= 5."
+    },
+    {
+      "id": "cor_14",
+      "title": "Chemistry stoichiometry",
+      "difficulty": "hard",
+      "tags": [
+        "chemistry",
+        "calculation"
+      ],
+      "input": "Reaction: 2 H₂ + O₂ → 2 H₂O\n\nReactants: 4 moles of H₂ and 1.5 moles of O₂.\nStoichiometry ratio: H₂:O₂ = 2:1.\n\nCLAIM: H₂ is the limiting reactant, and 4 moles of H₂O will be produced.",
+      "expected": "incorrect",
+      "rationale": "4 mol H₂ would need 2 mol O₂, but only 1.5 mol is available, so O₂ is the limiting reactant and only 3 mol H₂O form (1.5 × 2). Both parts of the claim are false."
+    },
+    {
+      "id": "cor_15",
+      "title": "Economics margin calculation",
+      "difficulty": "hard",
+      "tags": [
+        "economics",
+        "arithmetic",
+        "edge"
+      ],
+      "input": "Product: Widget X\nCost of goods sold (COGS): $15\nSelling price: $25\nGross margin: (Selling price - COGS) / Selling price × 100%\n\nCLAIM: Gross margin = (25 - 15) / 25 × 100% = 10 / 25 × 100% = 0.40 × 100% = 40%.",
+      "expected": "correct",
+      "rationale": "The formula is correct, and the arithmetic is correct: 25 - 15 = 10, 10 / 25 = 0.4, 0.4 × 100% = 40%. Claim is correct. (Common mistake: students use COGS in the denominator instead of price, getting 10/15 = 67%, which is markup, not margin.)"
+    }
+  ]
+}

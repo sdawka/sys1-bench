@@ -1,0 +1,212 @@
+{
+  "id": "discipline_classification",
+  "name": "Discipline Classification",
+  "description": "Assign a short research abstract to the single academic discipline that best fits its primary question. Many abstracts sit on boundaries (biophysics, computational linguistics, behavioural economics, epidemiology, history of science, mathematical logic), so the model must decide by the question being asked and the methods used rather than keywords or the subject matter alone.",
+  "system_prompt": "You are an academic librarian classifying research abstracts. Pick the single best-fit primary discipline from exactly these 12: biology (living organisms, cells, evolution, ecology, genetics); chemistry (composition, structure, reactions and properties of matter, synthesis); physics (matter, energy, forces, fields and physical laws, from particles to cosmology); mathematics (proofs, structures, number, geometry, logic as a formal mathematical subject, probability theory); computer_science (algorithms, software, systems, machine learning methods, computational complexity); economics (production, markets, incentives, prices and aggregate economic outcomes); psychology (mental processes, cognition, emotion and individual behaviour); sociology (social structure, institutions, groups, inequality and collective behaviour); history (the human past from archives and sources, including the history of science); linguistics (the structure, use and acquisition of human language, including computational approaches that test linguistic theory); philosophy (conceptual and normative questions about knowledge, reality, ethics, mind and logic); medicine (diagnosis, treatment and prevention of human disease, including clinical research and epidemiology of disease). Decide by the primary research question and the field whose standards of evidence would judge the answer, not by the subject matter or tools alone. Output the discipline id exactly as written. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "biology",
+      "chemistry",
+      "physics",
+      "mathematics",
+      "computer_science",
+      "economics",
+      "psychology",
+      "sociology",
+      "history",
+      "linguistics",
+      "philosophy",
+      "medicine"
+    ]
+  },
+  "decision": {
+    "primitive": "choice",
+    "instructions": "Which single academic discipline is the primary home of this research abstract? Decide by the primary research question and the field whose standards of evidence would judge the answer, not by subject matter or tools alone.",
+    "criteria": {
+      "biology": "Living organisms, cells, evolution, ecology, genetics.",
+      "chemistry": "Composition, structure, reactions and properties of matter; synthesis.",
+      "physics": "Matter, energy, forces, fields and physical laws, from particles to cosmology.",
+      "mathematics": "Proofs, structures, number, geometry, logic as a formal mathematical subject, probability theory.",
+      "computer_science": "Algorithms, software, systems, machine learning methods, computational complexity.",
+      "economics": "Production, markets, incentives, prices and aggregate economic outcomes.",
+      "psychology": "Mental processes, cognition, emotion and individual behaviour.",
+      "sociology": "Social structure, institutions, groups, inequality and collective behaviour.",
+      "history": "The human past studied from archives and sources, including the history of science.",
+      "linguistics": "Structure, use and acquisition of human language, including computational approaches that test linguistic theory.",
+      "philosophy": "Conceptual and normative questions about knowledge, reality, ethics, mind and logic.",
+      "medicine": "Diagnosis, treatment and prevention of human disease, including clinical research and disease epidemiology."
+    }
+  },
+  "cases": [
+    {
+      "id": "disc_01",
+      "title": "Graph colouring bound",
+      "difficulty": "easy",
+      "tags": [
+        "mathematics"
+      ],
+      "input": "We prove that every planar graph with girth at least 5 admits a list colouring in which each vertex has a palette of size 3, improving the previous bound of 4. The proof proceeds by discharging on a minimal counterexample and establishes several reducible configurations. We also give an infinite family of graphs showing that the bound cannot be lowered for girth 4.",
+      "expected": "mathematics",
+      "rationale": "Pure combinatorics with proofs and counterexamples; no empirical or computational question."
+    },
+    {
+      "id": "disc_02",
+      "title": "Gig workers ethnography",
+      "difficulty": "easy",
+      "tags": [
+        "sociology"
+      ],
+      "input": "Drawing on 18 months of ethnographic fieldwork and 64 interviews, we examine how food-delivery couriers in three cities build informal solidarity networks despite algorithmic management. We show that shared spaces such as parking areas and messaging groups sustain collective norms of mutual aid. These findings extend theories of precarious labour and collective action.",
+      "expected": "sociology",
+      "rationale": "Primary focus is on social structure, group formation and collective action studied by qualitative sociological methods."
+    },
+    {
+      "id": "disc_03",
+      "title": "Baltic grain trade archives",
+      "difficulty": "easy",
+      "tags": [
+        "history"
+      ],
+      "input": "Using customs registers and merchant letters preserved in the Gdansk archives, this study reconstructs the seventeenth-century grain trade between Poland-Lithuania and the Dutch Republic. It argues that harvest failures in the 1620s reorganised credit relationships between Baltic merchants. The analysis revises accounts that treated the trade as stable throughout the period.",
+      "expected": "history",
+      "rationale": "Archival reconstruction of past events and an argument about historical change."
+    },
+    {
+      "id": "disc_04",
+      "title": "Anticoagulant randomised trial",
+      "difficulty": "easy",
+      "tags": [
+        "medicine",
+        "clinical"
+      ],
+      "input": "In a multicentre randomised trial of 6,200 patients with atrial fibrillation, we compared a factor Xa inhibitor with warfarin for the prevention of stroke. The primary outcome was ischaemic stroke or systemic embolism at 24 months. Major bleeding was the principal safety outcome.",
+      "expected": "medicine",
+      "rationale": "Clinical trial of treatment for disease with patient outcomes."
+    },
+    {
+      "id": "disc_05",
+      "title": "Air pollution and childhood asthma cohort",
+      "difficulty": "hard",
+      "tags": [
+        "medicine",
+        "epidemiology"
+      ],
+      "input": "We followed 14,000 children from birth in a prospective birth cohort to estimate the association between early-life exposure to fine particulate matter and incident asthma by age seven. Exposure was modelled from residential addresses, and hazard ratios were adjusted for parental asthma, smoking and neighbourhood deprivation. Each 5 microgram per cubic metre increase was associated with a 14% higher hazard of asthma.",
+      "expected": "medicine",
+      "rationale": "Epidemiology of a disease outcome is medicine; the neighbourhood-deprivation adjustment is a covariate, not the research question."
+    },
+    {
+      "id": "disc_06",
+      "title": "Vaccine trust and social networks",
+      "difficulty": "hard",
+      "tags": [
+        "sociology",
+        "epidemiology-near-miss"
+      ],
+      "input": "This study asks how neighbourhood segregation and the structure of personal social networks shape trust in vaccination among recent immigrant communities. Using a survey of 900 households and network data on who people consult for health advice, we find that dense, co-ethnic networks transmit both trust and scepticism. We discuss how institutional distrust is socially reproduced across generations.",
+      "expected": "sociology",
+      "rationale": "The object of study is social structure and network processes; vaccination is the setting, not a disease outcome or clinical question."
+    },
+    {
+      "id": "disc_07",
+      "title": "Greenwich observation practices",
+      "difficulty": "edge",
+      "tags": [
+        "history",
+        "history-of-science"
+      ],
+      "input": "This paper examines how astronomers at the Royal Observatory, Greenwich, debated and standardised the recording of transit observations in the nineteenth century. Based on observatory logbooks, correspondence and committee minutes, it shows how disputes over the \"personal equation\" shaped norms of objectivity. It argues that standardisation was driven as much by institutional rivalry as by instrument improvement.",
+      "expected": "history",
+      "rationale": "History of science is history: the question is how past practices and institutions developed, answered from archival sources, not an astronomical question."
+    },
+    {
+      "id": "disc_08",
+      "title": "Finite model property of a modal logic",
+      "difficulty": "edge",
+      "tags": [
+        "mathematics",
+        "logic"
+      ],
+      "input": "We establish that the modal logic K4.3 with a universal modality has the finite model property and is decidable in exponential time. The argument uses a filtration technique adapted to the universal modality together with a tableau calculus for which we prove soundness and completeness. We also show that the complexity upper bound is tight by reduction from a tiling problem.",
+      "expected": "mathematics",
+      "rationale": "Formal proofs of metatheoretic and complexity results about a logic; mathematical logic is a branch of mathematics."
+    },
+    {
+      "id": "disc_09",
+      "title": "Is logical pluralism tenable",
+      "difficulty": "edge",
+      "tags": [
+        "philosophy",
+        "logic"
+      ],
+      "input": "This article argues that logical pluralism, the view that more than one logic is correct, cannot account for the normativity of logic for rational belief. We consider whether a pluralist can say which consequence relation an agent ought to follow when two logics disagree. We conclude that pluralism collapses either into monism or into relativism about validity.",
+      "expected": "philosophy",
+      "rationale": "Conceptual and normative argument about logic and rationality with no formal results; philosophy of logic."
+    },
+    {
+      "id": "disc_10",
+      "title": "Templated: Piezo1 channel, biophysics boundary",
+      "difficulty": "edge",
+      "tags": [
+        "templated",
+        "biophysics"
+      ],
+      "vars": {
+        "q": {
+          "type": "choice",
+          "options": [
+            "The central question is which physical force law governs the channel's opening tension, and whether its energy landscape is described by statistical mechanics.",
+            "The central question is which conserved residues and signalling pathways let cells of the vascular endothelium sense blood flow and regulate vessel development.",
+            "The central question is how to synthesise small-molecule inhibitors of the channel and to measure their binding thermodynamics and reaction kinetics."
+          ]
+        }
+      },
+      "input": "We study the mechanosensitive ion channel Piezo1, reconstituted in artificial lipid bilayers and probed with single-molecule force spectroscopy. {{q}} The work combines experiments with computational modelling and reports a candidate mechanism.",
+      "expected_expr": "vars.q.includes('energy landscape') ? 'physics' : vars.q.includes('vascular endothelium') ? 'biology' : 'chemistry'",
+      "rationale": "The same system fits three disciplines; the question decides: physical laws and statistical mechanics is physics, cellular function in development is biology, inhibitor synthesis and binding thermodynamics is chemistry."
+    },
+    {
+      "id": "disc_11",
+      "title": "Templated: language model, computational linguistics boundary",
+      "difficulty": "hard",
+      "tags": [
+        "templated",
+        "computational-linguistics"
+      ],
+      "vars": {
+        "q": {
+          "type": "choice",
+          "options": [
+            "We ask whether the learned representations reproduce typological generalisations about word order and morphological case.",
+            "We ask how to reduce training time and memory use through sparse attention and kernel fusion while keeping perplexity constant."
+          ]
+        }
+      },
+      "input": "We train a transformer language model on 40 million tokens of text in 12 languages. {{q}} Results are reported on held-out text and on probing tasks.",
+      "expected_expr": "vars.q.includes('word order') ? 'linguistics' : 'computer_science'",
+      "rationale": "Same method, different question. Testing whether representations reproduce typological generalisations is linguistics; reducing training cost while holding perplexity constant is computer science."
+    },
+    {
+      "id": "disc_12",
+      "title": "Templated: lottery choices, behavioural economics boundary",
+      "difficulty": "hard",
+      "tags": [
+        "templated",
+        "behavioural-economics"
+      ],
+      "vars": {
+        "q": {
+          "type": "choice",
+          "options": [
+            "The study tests whether loss aversion estimated from these choices predicts household savings behaviour and the pricing of assets in market data.",
+            "The study identifies the cognitive and affective mechanisms, such as attention and emotion, that produce the choice pattern, using reaction times and neuroimaging."
+          ]
+        }
+      },
+      "input": "In a laboratory experiment, 240 participants made repeated choices between risky lotteries with real monetary stakes. {{q}} The authors discuss implications of the choice patterns they observe.",
+      "expected_expr": "vars.q.includes('household savings') ? 'economics' : 'psychology'",
+      "rationale": "The task is the same; the question determines the field. Loss aversion predicting savings and market pricing is economics; attention and affective mechanisms with neuroimaging is psychology."
+    }
+  ]
+}

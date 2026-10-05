@@ -1,0 +1,234 @@
+{
+  "id": "consistency_check",
+  "name": "Consistency Check",
+  "description": "Decide whether two artifacts from the same project (a node description and an edge claim, an assumption and its test plan, README and architecture statements, or a graph slice and its prose summary) can both be true at once. Bropilot graphs and Protopilot docs drift apart as they are edited; detecting contradictions, including subtle numeric ones, keeps the knowledge base trustworthy.",
+  "system_prompt": "You are a consistency auditor for project documentation and knowledge graphs. You will be given two or more artifacts (statements, descriptions, JSON graph slices, or prose summaries). Decide whether they are mutually consistent. They are \"inconsistent\" if they make claims that cannot all be true together, including differing numbers, counts, names, directions of a relationship, or a claim and its negation. They are \"consistent\" if every claim can be true at the same time, even when the wording differs, one artifact is more detailed than the other, or one says nothing about a point the other covers. Check counts and lists carefully and compare every claim; do not judge on style. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "consistent",
+      "inconsistent"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Are the given artifacts (statements, descriptions, JSON graph slices or prose summaries) mutually consistent? They are inconsistent if they make claims that cannot all be true together, including differing numbers, counts, names, directions of a relationship, or a claim and its negation. They are consistent if every claim can be true at the same time, even when wording differs, one is more detailed, or one is silent on a point the other covers. Check counts and lists carefully and compare every claim; do not judge on style.",
+    "criteria": {
+      "true": "Consistent: every claim across the artifacts can be true at the same time.",
+      "false": "Inconsistent: some claims cannot all be true together (differing numbers, counts, names, relationship directions, or a claim and its negation)."
+    },
+    "true_option": "consistent",
+    "false_option": "inconsistent"
+  },
+  "cases": [
+    {
+      "id": "con_01",
+      "title": "Persona edge matches node text",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "node-vs-edge"
+      ],
+      "input": "Node A (persona): \"Solo founder. Wants to capture what the product is for before writing code.\"\nNode B (usecase): \"Capture the system purpose in a guided form.\"\nEdge claim: Node A motivates Node B.",
+      "expected": "consistent",
+      "rationale": "A persona motivating a use case matches the descriptions and is the ontology's canonical pairing."
+    },
+    {
+      "id": "con_02",
+      "title": "Node-kind count differs",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "numeric",
+        "readme-vs-doc"
+      ],
+      "input": "Statement 1 (README): \"The ontology (T-Box) defines 28 node kinds and 17 typed edge kinds.\"\nStatement 2 (docs): \"Bropilot's schema offers 26 node kinds, and edges come in 17 types.\"",
+      "expected": "inconsistent",
+      "rationale": "28 versus 26 node kinds cannot both be true; the edge count agrees, which can distract."
+    },
+    {
+      "id": "con_03",
+      "title": "Same limit, different wording",
+      "difficulty": "medium",
+      "tags": [
+        "protopilot",
+        "paraphrase",
+        "numeric"
+      ],
+      "input": "Statement 1 (architecture.md): \"Authoring state is capped at 1 MiB.\"\nStatement 2 (README): \"A project's authored content may not grow beyond 1,048,576 bytes.\"",
+      "expected": "consistent",
+      "rationale": "1 MiB equals 1,048,576 bytes; the wording is entirely different but the claims match."
+    },
+    {
+      "id": "con_04",
+      "title": "Two classes vs three listed",
+      "difficulty": "hard",
+      "tags": [
+        "protopilot",
+        "numeric",
+        "list-count"
+      ],
+      "input": "Statement 1 (summary): \"The runtime uses two Durable Object classes.\"\nStatement 2 (detail): \"The full-stack Worker declares three Durable Object classes: UserProjectIndexDO, ProjectStoreDO and RateLimiterDO.\"",
+      "expected": "inconsistent",
+      "rationale": "Two versus a list of three. A weak model matches the names it recognises and ignores the count."
+    },
+    {
+      "id": "con_05",
+      "title": "Advisory ontology vs rejecting saves",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "negation",
+        "readme-vs-doc"
+      ],
+      "input": "Statement 1 (README): \"Nothing is ever validated or blocked: the ontology advises, you decide.\"\nStatement 2 (design note): \"Saving a graph fails with an error when an edge connects two node kinds that are not listed together in the ontology table.\"",
+      "expected": "inconsistent",
+      "rationale": "The README says nothing is blocked, the note says saves are rejected; direct contradiction expressed through negation."
+    },
+    {
+      "id": "con_06",
+      "title": "Graph JSON matches prose",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "graph-slice"
+      ],
+      "input": "Graph slice:\n{\"nodes\":[{\"id\":\"p1\",\"kind\":\"persona\",\"name\":\"Founder\"},{\"id\":\"p2\",\"kind\":\"persona\",\"name\":\"Product manager\"},{\"id\":\"u1\",\"kind\":\"usecase\",\"name\":\"Collect the graph\"}],\"edges\":[{\"source\":\"p1\",\"type\":\"motivates\",\"target\":\"u1\"},{\"source\":\"p2\",\"type\":\"motivates\",\"target\":\"u1\"}]}\n\nSummary: \"Two personas, a founder and a product manager, each motivate the single use case of collecting the graph.\"",
+      "expected": "consistent",
+      "rationale": "Node count, kinds, edge type and direction all match the summary."
+    },
+    {
+      "id": "con_07",
+      "title": "Edge direction reversed in summary",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "graph-slice",
+        "direction"
+      ],
+      "input": "Graph slice:\n{\"nodes\":[{\"id\":\"t1\",\"kind\":\"tests\",\"name\":\"graph-store tests\"},{\"id\":\"m1\",\"kind\":\"module\",\"name\":\"graph-store\"}],\"edges\":[{\"source\":\"t1\",\"type\":\"verifies\",\"target\":\"m1\"}]}\n\nSummary: \"The graph-store module verifies the graph-store tests.\"",
+      "expected": "inconsistent",
+      "rationale": "The JSON says the tests verify the module; the summary reverses the direction."
+    },
+    {
+      "id": "con_08",
+      "title": "Assumption vs test plan, hidden threshold",
+      "difficulty": "edge",
+      "tags": [
+        "protopilot",
+        "long-input",
+        "hidden",
+        "numeric"
+      ],
+      "input": "Assumption A3 (Protopilot, Assumptions pass). Prediction: freelance designers who receive a clickable prototype will complete the \"send invoice\" task without help in under 90 seconds. What would change my mind: if fewer than 3 of 5 participants finish unaided, or if the median time exceeds 90 seconds. Alternative explanation: designers already know the invoicing tool, so success reflects familiarity, not the prototype. Decision informed: whether to build the invoice flow before the reminders flow.\n\nTest plan T3 (Prototype & test pass). Task: \"Send an invoice to a client for 400 dollars.\" Intended participants: freelance designers who have never used the invoicing tool, to control for the familiarity alternative. Prototype: the clickable invoice flow v2. Scenario: participant is alone on a laptop with a screen recorder; the facilitator may not speak after the instructions are read. Observation rule: record whether the participant reaches the confirmation screen unaided and the time from first click to confirmation. Sample: 5 participants. Success threshold: at least 4 of 5 participants finish unaided with a median time under 90 seconds.",
+      "expected": "consistent",
+      "rationale": "The test plan uses a stricter threshold (4 of 5) than the assumption's disconfirmation line (fewer than 3 of 5), but a plan can be stricter without contradicting the assumption; the sample, time and task all match. A weak model flags 4 vs 3 as a contradiction."
+    },
+    {
+      "id": "con_09",
+      "title": "Templated cap in two docs",
+      "difficulty": "edge",
+      "tags": [
+        "templated",
+        "numeric",
+        "protopilot"
+      ],
+      "vars": {
+        "a": {
+          "type": "int",
+          "min": 1,
+          "max": 3
+        },
+        "b": {
+          "type": "int",
+          "min": 1,
+          "max": 3
+        }
+      },
+      "input": "Statement 1 (architecture.md): \"Authoring state for a project is capped at {{a}} MiB.\"\nStatement 2 (README): \"A project's authored content may not exceed {{b}} MiB.\"",
+      "expected_expr": "vars.a === vars.b ? 'consistent' : 'inconsistent'",
+      "rationale": "Consistent exactly when the two numbers are equal."
+    },
+    {
+      "id": "con_10",
+      "title": "Templated class count vs fixed list",
+      "difficulty": "edge",
+      "tags": [
+        "templated",
+        "numeric",
+        "list-count",
+        "protopilot"
+      ],
+      "vars": {
+        "n": {
+          "type": "int",
+          "min": 2,
+          "max": 4
+        }
+      },
+      "input": "Statement 1 (summary): \"The Worker declares {{n}} Durable Object classes.\"\nStatement 2 (detail): \"The declared Durable Object classes are UserProjectIndexDO, ProjectStoreDO and RateLimiterDO.\"",
+      "expected_expr": "vars.n === 3 ? 'consistent' : 'inconsistent'",
+      "rationale": "The list has three names, so only n = 3 is consistent."
+    },
+    {
+      "id": "con_11",
+      "title": "Budget memo vs. expense report",
+      "difficulty": "easy",
+      "tags": [
+        "accounting",
+        "numbers"
+      ],
+      "input": "Budget memo: 'Q4 marketing spend should be $50,000, with $30,000 for digital ads and $20,000 for events.'\n\nExpense report for Oct: $15,000 digital ads, $10,000 events, $25,000 total. 'This is half of the Q4 budget; Nov and Dec will complete it.'",
+      "expected": "consistent",
+      "rationale": "Oct spend is $25,000 = half of the $50,000 Q4 budget, and each line is half of its allocation ($15,000 of $30,000; $10,000 of $20,000). The memo and report agree; the remaining half for Nov-Dec is consistent."
+    },
+    {
+      "id": "con_12",
+      "title": "Supply chain SLA vs. delivery record across a weekend",
+      "difficulty": "medium",
+      "tags": [
+        "supply-chain",
+        "SLA",
+        "edge"
+      ],
+      "input": "SLA statement: 'Deliveries within 50 miles arrive within 2 business days of shipment; deliveries of 51–200 miles arrive within 4 business days of shipment. Business days are Monday–Friday, counted starting the day after shipment.'\n\nDelivery record: 'Order from Customer A, distance 75 miles. Shipped Tuesday 2024-10-01; delivered Tuesday 2024-10-08. Status: delivered within SLA.'",
+      "expected": "inconsistent",
+      "rationale": "75 miles falls in the 4-business-day band. Counting from the day after shipment: Wed 2, Thu 3, Fri 4, Mon 7, Tue 8 = 5 business days, so the record's 'delivered within SLA' status contradicts the SLA. Edge: business-day counting across a weekend."
+    },
+    {
+      "id": "con_13",
+      "title": "Biology lab results vs. hypothesis",
+      "difficulty": "medium",
+      "tags": [
+        "biology",
+        "experiment"
+      ],
+      "input": "Hypothesis: 'Under high salinity, E. coli growth will be reduced by at least 30%.'\n\nLab result: 'Control (normal salinity) OD600 at 24h: 1.5. High salinity sample OD600 at 24h: 1.0. Growth reduction: 33%.'",
+      "expected": "consistent",
+      "rationale": "33% reduction meets the threshold of 'at least 30%'. The result supports the hypothesis."
+    },
+    {
+      "id": "con_14",
+      "title": "Physics experiment data vs. theory",
+      "difficulty": "hard",
+      "tags": [
+        "physics",
+        "calculation"
+      ],
+      "input": "Theory (free-fall acceleration on Earth): The time for an object to fall h meters is t = sqrt(2*h/g), where g = 9.8 m/s².\n\nExperiment: Drop from h = 10 m.\nPredicted fall time: t = sqrt(2*10/9.8) = sqrt(2.04) ≈ 1.428 seconds.\nMeasured fall time: 1.42 seconds.\nMeasurement error tolerance: ±0.05 seconds.\n\nCLAIM: The measured time (1.42 s) is consistent with the predicted time (1.428 s), as the difference (0.008 s) is within measurement error tolerance.",
+      "expected": "consistent",
+      "rationale": "The difference between predicted (1.428) and measured (1.42) is 0.008 seconds, well within the ±0.05 second tolerance. The measurement is consistent with theory. This is a straightforward calculation case."
+    },
+    {
+      "id": "con_15",
+      "title": "History timeline vs. event description",
+      "difficulty": "medium",
+      "tags": [
+        "history"
+      ],
+      "input": "Timeline: 'American Civil War: 1861–1865. First battle: Fort Sumter (April 12, 1861). Last major battle: Battle of Appomattox (April 9, 1865). Surrender: Lee to Grant. Emancipation Proclamation: announced September 22, 1862; issued and in effect January 1, 1863.'\n\nEvent description: 'On April 14, 1865, Lincoln issued the Emancipation Proclamation, which took effect Jan 1, 1863, freeing slaves in Confederate states.'",
+      "expected": "inconsistent",
+      "rationale": "The timeline says the Emancipation Proclamation was issued on January 1, 1863; the event description says it was issued on April 14, 1865. Both cannot be true, so the artifacts are inconsistent."
+    }
+  ]
+}

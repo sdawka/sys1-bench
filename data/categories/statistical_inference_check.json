@@ -1,0 +1,220 @@
+{
+  "id": "statistical_inference_check",
+  "name": "Statistical Inference Check",
+  "description": "Decide whether a small summary of data or an analysis (counts, means, p-values, confidence intervals, 2x2 tables) actually supports the conclusion as written. Overclaiming from correlational designs, misread significance, wrong populations, ignored base rates and aggregate-versus-stratified reversals are among the most common reasoning errors in applied research, so this category measures whether a model reads the numbers rather than the narrative.",
+  "system_prompt": "You are a careful statistician reviewing a conclusion drawn from a described study. You will be given a data summary and a conclusion stated by the authors. Decide whether the data and design support the conclusion exactly as written. Apply these rules. A causal claim needs a randomised design or an explicitly stated causal identification; correlation alone does not support it. When a significance test is reported, the p-value must be strictly below the stated alpha to call a result significant. A confidence interval that contains the null value does not support a claim of a difference from the null. The sample must come from the population the conclusion is about, and the conclusion must not generalise beyond that population. A statistically significant effect in the opposite direction supports the opposite conclusion, not the stated one. A very small effect size is not a large effect, however small the p-value. Check base rates when interpreting diagnostic tests. If stratified data contradict the aggregate (Simpson's paradox), a conclusion drawn from the aggregate alone is unsupported. Answer \"supported\" only if the conclusion follows from the given data; otherwise \"unsupported\". Do not judge on whether the conclusion is plausible in the real world. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "supported",
+      "unsupported"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Do the described data and design support the authors' conclusion exactly as written? Rules: a causal claim needs a randomised design or explicitly stated causal identification; correlation alone does not support it. A result is significant only if p is strictly below the stated alpha. A confidence interval containing the null value does not support a difference from the null. The sample must come from the population the conclusion is about, and the conclusion must not generalise beyond it. A significant effect in the opposite direction supports the opposite conclusion, not the stated one. A very small effect size is not a large effect, however small the p-value. Check base rates when interpreting diagnostic tests. If stratified data contradict the aggregate (Simpson's paradox), an aggregate-only conclusion is unsupported. Do not judge real-world plausibility.",
+    "criteria": {
+      "true": "Supported: the conclusion follows from the given data and design under every rule.",
+      "false": "Unsupported: the conclusion overreaches the data or design (causation from correlation, p >= alpha, CI includes null, wrong population, wrong direction, tiny effect called large, base-rate or Simpson error)."
+    },
+    "true_option": "supported",
+    "false_option": "unsupported"
+  },
+  "cases": [
+    {
+      "id": "stat_01",
+      "title": "RCT with significant, stated-direction result",
+      "difficulty": "easy",
+      "tags": [
+        "rct",
+        "p-value",
+        "causal"
+      ],
+      "input": "Design: randomised, double-blind trial. 200 adults with hypertension per arm (drug vs placebo), 12 weeks.\nResult: mean systolic blood pressure fell by 14 mmHg on the drug and 5 mmHg on placebo; difference 9 mmHg, 95% CI [5.1, 12.9], p < 0.001 (alpha = 0.05).\nConclusion: \"In this trial, the drug lowered systolic blood pressure more than placebo over 12 weeks in adults with hypertension.\"",
+      "expected": "supported",
+      "rationale": "Randomised design, p below alpha, CI excludes 0, direction and population match the conclusion."
+    },
+    {
+      "id": "stat_02",
+      "title": "Observational study with causal claim",
+      "difficulty": "easy",
+      "tags": [
+        "observational",
+        "causal"
+      ],
+      "input": "Design: cross-sectional survey of 5,000 adults. Coffee drinkers (3+ cups a day) reported anxiety symptoms more often than non-drinkers (31% vs 22%, p < 0.001). Exposure was self-reported and not assigned.\nConclusion: \"Drinking three or more cups of coffee a day causes anxiety.\"",
+      "expected": "unsupported",
+      "rationale": "A survey with no randomisation and no causal identification cannot establish causation; reverse causation and confounding remain open."
+    },
+    {
+      "id": "stat_03",
+      "title": "Overgeneralising from one student sample",
+      "difficulty": "medium",
+      "tags": [
+        "population",
+        "generalisation",
+        "rct"
+      ],
+      "input": "Design: randomised controlled trial, 90 first-year psychology undergraduates at one university (45 per arm), mindfulness app vs waitlist for 4 weeks.\nResult: perceived stress score was lower in the app arm by 4.2 points, 95% CI [1.5, 6.9], p = 0.002 (alpha = 0.05).\nConclusion: \"The mindfulness app reduces stress in all adults.\"",
+      "expected": "unsupported",
+      "rationale": "The result is internally valid for this population, but the conclusion extends to all adults from a sample of undergraduates at one university."
+    },
+    {
+      "id": "stat_04",
+      "title": "Templated: p-value just around alpha 0.05",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "p-value",
+        "numeric"
+      ],
+      "vars": {
+        "x": {
+          "type": "int",
+          "min": 1,
+          "max": 9
+        }
+      },
+      "input": "Design: randomised comparison of two onboarding flows, 400 users per arm. Test: two-sided t-test on seven-day retention, p = 0.0{{x}}. The pre-registered significance level is alpha = 0.05.\nConclusion: \"The difference in retention between the two flows is statistically significant at the pre-registered level.\"",
+      "expected_expr": "vars.x < 5 ? 'supported' : 'unsupported'",
+      "rationale": "Significant only when p < 0.05, i.e. x from 1 to 4. At x = 5 (p = 0.05) it is not strictly below alpha."
+    },
+    {
+      "id": "stat_05",
+      "title": "Templated: confidence interval versus null 0",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "confidence-interval",
+        "numeric"
+      ],
+      "vars": {
+        "lo": {
+          "type": "int",
+          "min": -3,
+          "max": 3
+        },
+        "hi": {
+          "type": "int",
+          "min": 4,
+          "max": 8
+        }
+      },
+      "input": "Design: randomised trial. Outcome: change in systolic blood pressure, treatment minus control, in mmHg. Result: mean difference with 95% CI [{{lo}}, {{hi}}]; the null value is 0.\nConclusion: \"The treatment effect differs from zero at the 5% level.\"",
+      "expected_expr": "vars.lo > 0 ? 'supported' : 'unsupported'",
+      "rationale": "Because hi is always positive, the interval excludes 0 only when lo > 0. When lo is 0 or negative the interval contains the null (lo = 0 sits on the boundary, so it is not excluded)."
+    },
+    {
+      "id": "stat_06",
+      "title": "Templated: sample size per arm against a stated minimum",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "sample-size",
+        "numeric"
+      ],
+      "vars": {
+        "n": {
+          "type": "int",
+          "min": 10,
+          "max": 50
+        }
+      },
+      "input": "Protocol rule: no efficacy claim may be made unless each arm has at least 30 participants.\nDesign: randomised trial with {{n}} participants per arm. Result: 70% improved on treatment vs 40% on control, p = 0.01 (alpha = 0.05).\nConclusion: \"The treatment is effective, meeting the protocol's requirement for an efficacy claim.\"",
+      "expected_expr": "vars.n >= 30 ? 'supported' : 'unsupported'",
+      "rationale": "The statistics are significant in every case, but the stated protocol requires at least 30 per arm, so the claim holds only for n >= 30."
+    },
+    {
+      "id": "stat_07",
+      "title": "Templated: p-value against a varying alpha",
+      "difficulty": "hard",
+      "tags": [
+        "templated",
+        "p-value",
+        "numeric"
+      ],
+      "vars": {
+        "x": {
+          "type": "int",
+          "min": 1,
+          "max": 9
+        },
+        "alpha": {
+          "type": "choice",
+          "options": [
+            "0.01",
+            "0.05",
+            "0.10"
+          ]
+        }
+      },
+      "input": "Design: randomised experiment. Test result: p = 0.0{{x}}. The study uses a significance threshold of alpha = {{alpha}}.\nConclusion: \"The effect is statistically significant at the study's chosen alpha.\"",
+      "expected_expr": "vars.x / 100 < parseFloat(vars.alpha) ? 'supported' : 'unsupported'",
+      "rationale": "Significant only if p is strictly below alpha. Equality (for example p = 0.05 at alpha 0.05) does not qualify."
+    },
+    {
+      "id": "stat_08",
+      "title": "Significant effect in the opposite direction",
+      "difficulty": "edge",
+      "tags": [
+        "direction",
+        "p-value",
+        "rct"
+      ],
+      "input": "Design: randomised trial, 150 students per arm. Treatment: a new teaching method. Outcome: end-of-term exam score (0-100).\nResult: mean 71 (treatment) vs 76 (control); difference -5, 95% CI [-8.6, -1.4], p = 0.01 (alpha = 0.05).\nConclusion: \"The new teaching method improved exam scores.\"",
+      "expected": "unsupported",
+      "rationale": "The result is significant but in the wrong direction: the method lowered scores. A model that stops at \"p < alpha, randomised\" answers incorrectly."
+    },
+    {
+      "id": "stat_09",
+      "title": "Huge n, tiny effect called large",
+      "difficulty": "edge",
+      "tags": [
+        "effect-size",
+        "large-n"
+      ],
+      "input": "Design: randomised trial of a study app, 50,000 users per arm. Outcome: test score on a 100-point scale, standard deviation 15 in both arms.\nResult: mean difference 0.3 points, 95% CI [0.11, 0.49], p = 0.002.\nConclusion: \"The app produces a large improvement in test scores.\"",
+      "expected": "unsupported",
+      "rationale": "The effect is statistically significant but the standardised effect is about 0.02 SD, which is negligible. Significance does not make an effect large."
+    },
+    {
+      "id": "stat_10",
+      "title": "Simpson's paradox: aggregate hides reversal",
+      "difficulty": "hard",
+      "tags": [
+        "simpson",
+        "stratified",
+        "2x2"
+      ],
+      "input": "Retrospective comparison of two treatments for kidney stones (success / total):\n- Small stones: Treatment A 81/87 (93%), Treatment B 234/270 (87%)\n- Large stones: Treatment A 192/263 (73%), Treatment B 55/80 (69%)\n- All patients: Treatment A 273/350 (78%), Treatment B 289/350 (83%)\nConclusion: \"Because B has the higher overall success rate, B is the better treatment for both small-stone and large-stone patients.\"",
+      "expected": "unsupported",
+      "rationale": "Treatment A has the higher success rate in each stratum; the aggregate favours B only because B was given mostly to the easier small-stone cases. The conclusion about each patient group is contradicted."
+    },
+    {
+      "id": "stat_11",
+      "title": "Base-rate neglect in a screening test",
+      "difficulty": "edge",
+      "tags": [
+        "base-rate",
+        "diagnostic",
+        "bayes"
+      ],
+      "input": "A screening test for a rare disease has sensitivity 99% and specificity 95%. Disease prevalence in the screened population is 1 in 1,000 (0.1%). Of 100,000 people screened, about 99 true cases test positive and about 4,995 healthy people test positive.\nConclusion: \"A person who tests positive almost certainly (above 90% probability) has the disease.\"",
+      "expected": "unsupported",
+      "rationale": "Positive predictive value is about 99 / (99 + 4,995), roughly 2%. High sensitivity and specificity do not overcome a very low base rate."
+    },
+    {
+      "id": "stat_12",
+      "title": "Association-only claim from an observational cohort",
+      "difficulty": "edge",
+      "tags": [
+        "observational",
+        "association",
+        "hazard-ratio"
+      ],
+      "input": "Design: prospective cohort of 8,400 adults followed for 10 years. Highest versus lowest quartile of ultra-processed food intake: hazard ratio for cardiovascular disease 1.18, 95% CI [1.05, 1.33], adjusted for age, sex and smoking. No intervention was assigned.\nConclusion: \"Higher ultra-processed food intake was associated with a modestly higher risk of cardiovascular disease in this cohort.\"",
+      "expected": "supported",
+      "rationale": "The claim is correctly phrased as an association, the CI excludes 1, and the effect is described as modest. A model that reflexively rejects any observational study is wrong here."
+    }
+  ]
+}

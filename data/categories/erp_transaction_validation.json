@@ -1,0 +1,213 @@
+{
+  "id": "erp_transaction_validation",
+  "name": "ERP Transaction Validation",
+  "description": "Decide whether an ERP document (journal entry, purchase order / goods receipt / invoice set, stock movement or payroll run) is valid under a compact, stated rulebook. ERP posting engines enforce these controls mechanically; a model that eyeballs documents instead of checking each rule (balance, open period, three-way match, master data, limits) lets bad postings through or blocks good ones.",
+  "system_prompt": "You validate ERP documents against the rulebook below. Check every rule that the input gives enough data to test; rules for which the input provides no data are treated as satisfied. The document is invalid if ANY applicable rule is violated.\nRULEBOOK\n1. Double entry: total debits must equal total credits.\n2. Posting period: the posting date's period must be OPEN.\n3. Three-way match: PO, goods receipt (GR) and invoice must all exist; GR quantity and invoice quantity must equal the PO quantity unless a quantity tolerance is stated, and invoice unit price / value must be within the stated tolerance of the PO. A missing GR makes the match fail.\n4. Cost centre: must be active and belong to the posting company code.\n5. Inventory: a goods issue cannot exceed on-hand stock (issuing exactly the on-hand quantity is allowed).\n6. Payroll: gross = sum of the earnings components; net = gross minus ALL deductions.\n7. Approval limits: the approver's role limit applies to the total document value (not per line); a document above the approver's limit is invalid unless approved by a higher role.\n8. Currency: document currency must equal the company-code currency unless an FX rate is given, in which case the converted amount is used.\n9. Tax code: must exist in the tax code list given in the input.\ndecision must be \"valid\" or \"invalid\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "valid",
+      "invalid"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Is this ERP document valid under the rulebook? Check every rule the input gives data to test; rules with no data are satisfied. Invalid if ANY applicable rule is violated. Recompute every stated total yourself; a stated figure that differs from the computed one violates its rule. 1 Double entry: total debits = total credits. 2 Posting period of the posting date must be OPEN. 3 Three-way match: PO, goods receipt (GR) and invoice must all exist (missing GR fails); GR and invoice qty must equal PO qty unless a qty tolerance is stated; invoice unit price/value within stated tolerance of PO. 4 Cost centre active and belongs to the posting company code. 5 Goods issue cannot exceed on-hand stock (issuing exactly on-hand is allowed). 6 Payroll: gross = sum of earnings components; net = gross minus ALL deductions. 7 Approver role limit applies to total document value (not per line); above limit is invalid unless approved by a higher role. 8 Document currency must equal company-code currency unless an FX rate is given, then use the converted amount. 9 Tax code must exist in the tax code list given.",
+    "criteria": {
+      "true": "Valid: no applicable rulebook rule is violated.",
+      "false": "Invalid: at least one applicable rulebook rule is violated."
+    },
+    "true_option": "valid",
+    "false_option": "invalid"
+  },
+  "cases": [
+    {
+      "id": "erp_01",
+      "title": "Clean journal entry",
+      "difficulty": "easy",
+      "tags": [
+        "journal",
+        "balance"
+      ],
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-09-14, currency EUR.\nDr 6200 Travel expense  1,200.00  (CC-100, tax code V1 not applicable)\nDr 1400 Input VAT  240.00  (tax code V2)\nCr 2100 Accounts payable  1,440.00",
+      "expected": "valid",
+      "rationale": "Debits 1,440.00 = credits 1,440.00, period 2026-09 is open, CC-100 is active in company 1000, tax code V2 exists, currency matches."
+    },
+    {
+      "id": "erp_02",
+      "title": "Journal balance (templated credit)",
+      "difficulty": "medium",
+      "tags": [
+        "journal",
+        "balance",
+        "templated",
+        "near-miss"
+      ],
+      "vars": {
+        "c": {
+          "type": "choice",
+          "options": [
+            "1,000.00",
+            "1,000.01",
+            "900.00",
+            "1,100.00"
+          ]
+        }
+      },
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-09-03, currency EUR.\nDr 6100 Rent expense  1,000.00  (CC-100)\nCr 2100 Accounts payable  {{c}}",
+      "expected_expr": "vars.c === '1,000.00' ? 'valid' : 'invalid'",
+      "rationale": "Valid only when the credit equals the 1,000.00 debit. 1,000.01 is a one-cent near-miss that must still fail rule 1."
+    },
+    {
+      "id": "erp_03",
+      "title": "Balanced but period closed",
+      "difficulty": "edge",
+      "tags": [
+        "journal",
+        "period",
+        "distractor"
+      ],
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-08-29, currency EUR.\nDr 6300 Bank charges  800.00  (CC-100)\nCr 1000 Bank account  800.00\nThe entry is perfectly balanced and was approved by the finance controller.",
+      "expected": "invalid",
+      "rationale": "The entry balances, but August 2026 is closed so rule 2 fails. Balance is the distractor."
+    },
+    {
+      "id": "erp_04",
+      "title": "Invoice matches PO but no goods receipt",
+      "difficulty": "edge",
+      "tags": [
+        "three-way-match",
+        "missing-document"
+      ],
+      "input": "DOCUMENT SET (company 1000, EUR)\nPO 4500123: 100 units of item A-77 at 12.50 = 1,250.00.\nGoods receipts for PO 4500123: none posted to date.\nVendor invoice INV-8841: 100 units of A-77 at 12.50 = 1,250.00, dated 2026-09-10, posting date 2026-09-12 (period OPEN).\nThe invoice agrees with the PO exactly on quantity, price and value.",
+      "expected": "invalid",
+      "rationale": "Rule 3 needs all three documents; with no GR the three-way match fails even though invoice and PO agree."
+    },
+    {
+      "id": "erp_05",
+      "title": "Invoice price vs PO tolerance (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "three-way-match",
+        "tolerance",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "pr": {
+          "type": "int",
+          "min": 96,
+          "max": 106
+        }
+      },
+      "input": "DOCUMENT SET (company 1000, EUR, period OPEN)\nPO 4500200: 50 units at unit price 100.00 = 5,000.00. Price tolerance: +/-2% of PO unit price. Quantity tolerance: none.\nGR 5000111: 50 units received.\nInvoice INV-9001: 50 units at unit price {{pr}}.00.",
+      "expected_expr": "Math.abs(vars.pr - 100) <= 2 ? 'valid' : 'invalid'",
+      "rationale": "2% of 100.00 is 2.00, so unit prices from 98 to 102 inclusive pass; 97 and 103 and beyond fail. Boundaries are inclusive."
+    },
+    {
+      "id": "erp_06",
+      "title": "Rounding difference within tolerance",
+      "difficulty": "edge",
+      "tags": [
+        "three-way-match",
+        "rounding",
+        "tolerance"
+      ],
+      "input": "DOCUMENT SET (company 1000, EUR, period OPEN)\nHeader rule for this vendor: value tolerance +/-0.5% of PO value; quantity tolerance none.\nPO 4500310: 3 units at 33.33 = 99.99.\nGR 5000140: 3 units received.\nInvoice INV-7712: 3 units, vendor-rounded invoice total 100.00.",
+      "expected": "valid",
+      "rationale": "The 0.01 difference is 0.01% of 99.99, far inside the 0.5% tolerance; quantities match and all three documents exist."
+    },
+    {
+      "id": "erp_07",
+      "title": "Goods issue vs on-hand (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "inventory",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "q": {
+          "type": "int",
+          "min": 80,
+          "max": 160
+        }
+      },
+      "input": "DOCUMENT: Goods issue to production order PO-77, plant 1000, posting date 2026-09-08 (period OPEN).\nMaterial M-200 issued quantity: {{q}} units.\nStock overview for M-200 at plant 1000: on-hand 120 units, of which 0 blocked.",
+      "expected_expr": "vars.q <= 120 ? 'valid' : 'invalid'",
+      "rationale": "Issuing up to and including the on-hand 120 is allowed; 121 or more would drive stock negative."
+    },
+    {
+      "id": "erp_08",
+      "title": "Cost centre active and in company (templated)",
+      "difficulty": "hard",
+      "tags": [
+        "master-data",
+        "cost-centre",
+        "templated"
+      ],
+      "vars": {
+        "cc": {
+          "type": "choice",
+          "options": [
+            "CC-100",
+            "CC-200",
+            "CC-300"
+          ]
+        }
+      },
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-09-20, currency EUR.\nDr 6500 Training expense  750.00  (cost centre {{cc}})\nCr 2100 Accounts payable  750.00\nThe entry balances and the period is open.",
+      "expected_expr": "vars.cc === 'CC-100' ? 'valid' : 'invalid'",
+      "rationale": "Only CC-100 is both active and in company 1000. CC-200 is inactive; CC-300 is active but belongs to company 2000."
+    },
+    {
+      "id": "erp_09",
+      "title": "Payroll net omits a deduction",
+      "difficulty": "hard",
+      "tags": [
+        "payroll",
+        "arithmetic"
+      ],
+      "input": "DOCUMENT: Payroll run, employee E-4410, company 1000, period 2026-09 (OPEN).\nEarnings: basic 4,000.00; overtime 350.00; housing allowance 200.00. Stated gross: 4,550.00.\nDeductions: income tax 800.00; pension 200.00; health insurance 150.00.\nStated net pay: 3,550.00.",
+      "expected": "invalid",
+      "rationale": "Gross 4,550 is correct but net must be 4,550 - 1,150 = 3,400. 3,550 omits the health insurance deduction (rule 6)."
+    },
+    {
+      "id": "erp_10",
+      "title": "PO approved above role limit by splitting lines",
+      "difficulty": "hard",
+      "tags": [
+        "approval",
+        "limits"
+      ],
+      "input": "DOCUMENT: Purchase order 4500420, company 1000, EUR.\nLines: 3 lines of 2,400.00 each (total 7,200.00).\nApproved by: J. Lee, role Buyer.\nApproval limits by role: Buyer up to 5,000.00; Purchasing Manager up to 25,000.00; CFO unlimited.",
+      "expected": "invalid",
+      "rationale": "The limit applies to the total document value of 7,200.00, not per line, so a Buyer cannot approve it (rule 7)."
+    },
+    {
+      "id": "erp_11",
+      "title": "Foreign-currency invoice with FX rate given",
+      "difficulty": "edge",
+      "tags": [
+        "currency",
+        "fx",
+        "distractor"
+      ],
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Vendor invoice posted in company 1000 (EUR), posting date 2026-09-15, CC-100.\nInvoice currency USD, amount 10,000.00. FX rate USD->EUR on posting date: 0.92 (given on the document).\nPosting: Dr 6400 Software expense 9,200.00 EUR; Cr 2100 Accounts payable 9,200.00 EUR.",
+      "expected": "valid",
+      "rationale": "Currency differs from the company currency but an FX rate is supplied; 10,000 x 0.92 = 9,200 and the entry balances in EUR (rule 8)."
+    },
+    {
+      "id": "erp_12",
+      "title": "Unknown tax code",
+      "difficulty": "medium",
+      "tags": [
+        "tax",
+        "master-data"
+      ],
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-09-18, currency EUR.\nDr 6600 Consulting expense 500.00 (CC-100)\nDr 1400 Input VAT 50.00 (tax code V5)\nCr 2100 Accounts payable 550.00",
+      "expected": "invalid",
+      "rationale": "Debits equal credits and master data is fine, but tax code V5 is not in the list V0/V1/V2 (rule 9)."
+    }
+  ]
+}

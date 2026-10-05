@@ -1,0 +1,197 @@
+{
+  "id": "relation_selection",
+  "name": "Relation Selection",
+  "description": "Given a source node and a target node from a Bropilot graph, choose the one edge kind (of 17) that best describes the link from source to target. Edge choice carries direction and intent, so models must respect direction, prefer richer types over references, and separate near pairs such as implements vs satisfies and uses vs depends_on.",
+  "system_prompt": "You choose the Bropilot knowledge-graph edge kind that best connects a SOURCE node to a TARGET node. The edge points from source to target. The 17 edge kinds, with definitions and direction semantics, are:\n- contains: Structural nesting of implementation artifacts; the child is a building block whose lifecycle the parent owns. Direction: parent -> child.\n- has: Conceptual possession in the problem/domain space; the target is an attribute or aspect, not a building block. For code artifacts use contains. Direction: owner -> aspect.\n- extends: Specialisation or inheritance; the source is a more specific kind of the target. Direction: specific -> general.\n- implements: Realises a solution-space spec (interface, behaviour, capability, screen, flow, design). For problem-space statements use satisfies. Direction: realiser -> spec.\n- exposes: Makes the target reachable at its boundary for others to consume. Distinct from implements, which fulfils the contract itself. Direction: owner -> exposed thing.\n- uses: Runtime dependency; the source calls or consumes the target while the system runs. For build-time coupling use depends_on. Direction: consumer -> provider.\n- depends_on: Build-time or logical prerequisite; the source relies on the target existing or holding true, without calling it at runtime. Direction: dependent -> prerequisite.\n- describes: Defines or documents the target; terms and design decisions annotating what they explain, without owning it. Direction: documenter -> documented.\n- references: Weak link of last resort; mentions the target with no structural, causal, or intentional commitment. Prefer a richer type when one fits. Direction: mentioner -> mentioned.\n- triggers: Causal succession; the source causes the target to start or occur (event-in). For producing an event, use emits. Direction: cause -> effect.\n- emits: Event production; the source produces the target event as an output signal (event-out). Direction: producer -> event.\n- motivates: Is the reason the target exists; points down the why-chain (purpose motivates goal, persona motivates usecase). Direction: reason -> thing motivated.\n- serves: Delivers value to a beneficiary; who or what this exists for (capability serves persona). For intent-to-intent links use motivates. Direction: provider -> beneficiary.\n- satisfies: Meets a problem-space statement: requirement, constraint, or use case. For solution-space specs use implements. Direction: meeter -> statement.\n- constrains: Imposes a limit or invariant the target must respect (constraint to module, requirement to design). Direction: limiter -> limited.\n- verifies: Provides pass/fail proof that the target holds or works; the primary outgoing edge for test suites, including hypothesis validation. Direction: proof -> target.\n- monitors: Watches the target at runtime via metrics, logs, alerts; point it at a goal to track that goal's success metric. Direction: monitor -> target.\nPick the most specific kind that fits in the stated direction. Use references only when no other kind fits. Use exactly one edge id from the list as the decision. Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "contains",
+      "has",
+      "extends",
+      "implements",
+      "exposes",
+      "uses",
+      "depends_on",
+      "describes",
+      "references",
+      "triggers",
+      "emits",
+      "motivates",
+      "serves",
+      "satisfies",
+      "constrains",
+      "verifies",
+      "monitors"
+    ]
+  },
+  "decision": {
+    "primitive": "choice",
+    "instructions": "Which Bropilot knowledge-graph edge kind best connects the SOURCE node to the TARGET node? The edge points from source to target. Pick the most specific kind that fits in the stated direction; use references only when no other kind fits.",
+    "criteria": {
+      "contains": "Structural nesting of implementation artifacts; child is a building block whose lifecycle the parent owns. parent -> child.",
+      "has": "Conceptual possession in the problem/domain space; target is an attribute or aspect, not a building block (for code use contains). owner -> aspect.",
+      "extends": "Specialisation or inheritance; source is a more specific kind of the target. specific -> general.",
+      "implements": "Realises a solution-space spec (interface, behaviour, capability, screen, flow, design); for problem-space statements use satisfies. realiser -> spec.",
+      "exposes": "Makes the target reachable at its boundary for others to consume, distinct from fulfilling the contract. owner -> exposed thing.",
+      "uses": "Runtime dependency; source calls or consumes the target while running (build-time coupling is depends_on). consumer -> provider.",
+      "depends_on": "Build-time or logical prerequisite; source relies on target existing or holding true, without calling it at runtime. dependent -> prerequisite.",
+      "describes": "Source defines or documents the target: the source is the documentation (e.g. a term describes the things it names, a design decision annotates what it explains) without owning it. A node that merely uses a term's vocabulary does not describe it. documenter -> documented.",
+      "references": "Weak link of last resort; source mentions or uses the target (e.g. a requirement that uses a defined term's vocabulary) with no structural, causal or intentional commitment. mentioner -> mentioned.",
+      "triggers": "Causal succession; source causes the target to start or occur (event-in; producing an event is emits). cause -> effect.",
+      "emits": "Event production; source produces the target event as an output signal (event-out). producer -> event.",
+      "motivates": "Is the reason the target exists, down the why-chain (purpose motivates goal, persona motivates usecase). reason -> thing motivated.",
+      "serves": "Delivers value to a beneficiary, who or what this exists for (capability serves persona); intent-to-intent is motivates. provider -> beneficiary.",
+      "satisfies": "Meets a problem-space statement: requirement, constraint or use case (solution-space specs use implements). meeter -> statement.",
+      "constrains": "Imposes a limit or invariant the target must respect (constraint to module, requirement to design). limiter -> limited.",
+      "verifies": "Provides pass/fail proof that the target holds or works; primary edge for test suites, including hypothesis validation. proof -> target.",
+      "monitors": "Watches the target at runtime via metrics, logs, alerts; pointing at a goal tracks that goal's success metric. monitor -> target."
+    }
+  },
+  "cases": [
+    {
+      "id": "rs_01",
+      "title": "Module exposes endpoint",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "structural"
+      ],
+      "input": "SOURCE (module): Billing Service, the code under src/lib/billing\nTARGET (api): POST /invoices, the endpoint external callers use to create an invoice\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "exposes",
+      "rationale": "The module makes the endpoint reachable at its boundary. contains would imply the endpoint is a building block owned by the module, and exposes is the canonical module-to-api edge."
+    },
+    {
+      "id": "rs_02",
+      "title": "Tests vs monitoring (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "verification",
+        "templated"
+      ],
+      "vars": {
+        "src": {
+          "type": "choice",
+          "options": [
+            "Billing regression suite, which runs in CI and gives pass/fail proof that billing works",
+            "Billing latency dashboard and alerts, which watch the billing module in production through metrics"
+          ]
+        }
+      },
+      "input": "SOURCE (tests or observability): {{src}}\nTARGET (module): Billing module\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected_expr": "vars.src.startsWith('Billing regression') ? 'verifies' : 'monitors'",
+      "rationale": "Pass/fail proof is verifies; runtime watching through metrics and alerts is monitors."
+    },
+    {
+      "id": "rs_03",
+      "title": "Persona motivates use case",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "intentional"
+      ],
+      "input": "SOURCE (persona): Field sales rep who works from a phone between client visits\nTARGET (usecase): Pull up the last three client interactions in the lobby before a meeting\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "motivates",
+      "rationale": "Persona motivates usecase is the canonical intent chain. serves is for a provider delivering value to a beneficiary, and triggers is causal runtime succession."
+    },
+    {
+      "id": "rs_04",
+      "title": "Capability serves persona",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "intentional"
+      ],
+      "input": "SOURCE (capability): Offline access to client notes\nTARGET (persona): Field sales rep with patchy mobile signal\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "serves",
+      "rationale": "A capability delivers value to a beneficiary. motivates would point the why-chain in the wrong direction."
+    },
+    {
+      "id": "rs_05",
+      "title": "Behaviour emits event",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "behavioural",
+        "near-miss"
+      ],
+      "input": "SOURCE (behaviour): Mark invoice as paid: when a payment clears, the system closes the invoice\nTARGET (event): InvoicePaid, a signal other parts of the system can react to\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "emits",
+      "rationale": "The behaviour produces the event as an output signal, so emits (event-out). triggers is the mirror, where an event causes something."
+    },
+    {
+      "id": "rs_06",
+      "title": "Runtime call vs build prerequisite (templated)",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "dependency",
+        "templated"
+      ],
+      "vars": {
+        "how": {
+          "type": "choice",
+          "options": [
+            "calls the Pricing module's quote() function on every report request while the system is running",
+            "imports only compile-time type declarations from the Pricing module, so Pricing must be built first, but no Pricing code is ever called while the system runs"
+          ]
+        }
+      },
+      "input": "SOURCE (module): Reporting module, which {{how}}\nTARGET (module): Pricing module\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected_expr": "vars.how.startsWith('calls') ? 'uses' : 'depends_on'",
+      "rationale": "The first variant is a live call at runtime, which matches uses ('the source calls or consumes the target while the system runs'). The second is a build-time prerequisite with no runtime call, which matches depends_on ('relies on the target existing ... without calling it at runtime'). Weak models answer the same edge for both."
+    },
+    {
+      "id": "rs_07",
+      "title": "Vocabulary mention only",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "references",
+        "escape-hatch"
+      ],
+      "input": "SOURCE (requirement): Exported reports must include the audit trail.\nTARGET (term): Audit trail: the time-ordered record of who changed what and when\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "references",
+      "rationale": "The requirement merely uses the vocabulary. A requirement does not describe a term (describes runs term to target) and no structural, causal or intentional link exists, so the weak references edge is correct."
+    },
+    {
+      "id": "rs_08",
+      "title": "Component realises screen",
+      "difficulty": "edge",
+      "tags": [
+        "bropilot",
+        "structural",
+        "direction"
+      ],
+      "input": "SOURCE (component): CheckoutPage.vue, the code that renders the Checkout view\nTARGET (screen): Checkout, the UI view where the customer reviews the order and pays\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "implements",
+      "rationale": "Direction matters. The reverse edge, screen to component, would be contains. From component to screen the code realises the view, so implements."
+    },
+    {
+      "id": "rs_09",
+      "title": "Constraint limits module",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "intentional"
+      ],
+      "input": "SOURCE (constraint): No personal data may ever be written to logs\nTARGET (module): Audit Logger, the code that writes application logs\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "constrains",
+      "rationale": "Constraint-to-module is the canonical constrains edge, imposing an invariant the module must respect."
+    },
+    {
+      "id": "rs_10",
+      "title": "Module meets requirement",
+      "difficulty": "hard",
+      "tags": [
+        "bropilot",
+        "intentional",
+        "near-miss"
+      ],
+      "input": "SOURCE (module): Billing Core, the code that issues invoices\nTARGET (requirement): Invoices must be issued within 24 hours of delivery\nWhich edge kind goes from SOURCE to TARGET?",
+      "expected": "satisfies",
+      "rationale": "The target is a problem-space statement, so satisfies. implements is reserved for solution-space specs such as interfaces, behaviours, capabilities and screens."
+    }
+  ]
+}

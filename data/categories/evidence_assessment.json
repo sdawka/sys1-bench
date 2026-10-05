@@ -1,0 +1,173 @@
+{
+  "id": "evidence_assessment",
+  "name": "Evidence Assessment",
+  "description": "Decide whether observed Protopilot test evidence supports, refutes, or does not bear on a stated assumption. In Protopilot's Learn pass, evidence, interpretations and decisions are kept separate: an author pins an assumption, shares a prototype test with qualified participants, and must judge what the sessions actually say before deciding what to build next. A model that over-reads evidence (counting the wrong persona, a neighbouring claim, or disconnected sessions) corrupts the belief summary.",
+  "system_prompt": "You assess research evidence for Protopilot, a prototype-testing tool. Each input gives an ASSUMPTION (taken as stated) and an OBSERVATION from prototype test sessions.\nDecide how the observation bears on the assumption exactly as stated:\n- supports: the observation makes the assumption more likely as stated.\n- refutes: the observation makes the assumption less likely as stated.\n- neutral: the observation does not bear on it: it concerns a different population or persona, a different claim than the one stated, is confounded, or there is no usable observation (e.g. sessions disconnected or participants ineligible). Missing observations are not refutation.\nRules:\n1. Judge direction, not strength. A small sample still supports or refutes directionally; do not answer neutral merely because n is small.\n2. If the assumption states an explicit threshold, compare the observed count to it: meeting the threshold (>=) supports, falling short refutes.\n3. Evidence for a neighbouring or weaker claim does not count for this one.\n4. Read negations carefully and restate the assumption positively before judging.\ndecision must be \"supports\", \"refutes\" or \"neutral\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "supports",
+      "refutes",
+      "neutral"
+    ]
+  },
+  "decision": {
+    "primitive": "choice",
+    "instructions": "How does the OBSERVATION from Protopilot prototype test sessions bear on the ASSUMPTION exactly as stated? Rules: (1) Judge direction, not strength; a small sample still supports or refutes directionally. (2) If the assumption states an explicit threshold, meeting it (>=) supports and falling short refutes. (3) Evidence for a neighbouring or weaker claim does not count. (4) Read negations carefully; restate the assumption positively before judging. Missing observations are not refutation.",
+    "criteria": {
+      "supports": "The observation makes the assumption more likely as stated (including meeting an explicit threshold).",
+      "refutes": "The observation makes the assumption less likely as stated (including falling short of an explicit threshold).",
+      "neutral": "The observation does not bear on the assumption: different population or persona, different claim, confounded, or no usable observation (e.g. disconnected sessions, ineligible participants)."
+    }
+  },
+  "cases": [
+    {
+      "id": "ev_01",
+      "title": "Quote form on phone, clear success",
+      "difficulty": "easy",
+      "tags": [
+        "protopilot",
+        "quantitative",
+        "task-completion"
+      ],
+      "input": "ASSUMPTION: Field sales reps can complete the mobile quote form in under 2 minutes.\n\nOBSERVATION: Prototype test \"Mobile quote v2\", 10 qualified participants, all screened as field sales reps. 9 of 10 completed the quote form; median completion time 1m 20s, slowest successful completion 1m 52s. One participant abandoned at the discount step. Quote: \"Way faster than calling the office.\"",
+      "expected": "supports",
+      "rationale": "The right persona, the exact task, and 9/10 finished under the 2-minute bar. One abandonment does not reverse the direction."
+    },
+    {
+      "id": "ev_02",
+      "title": "Reorder button not discoverable",
+      "difficulty": "easy",
+      "tags": [
+        "protopilot",
+        "quantitative",
+        "quotes"
+      ],
+      "input": "ASSUMPTION: Shop owners will find the \"Reorder\" button on the stock screen without help.\n\nOBSERVATION: 8 qualified shop owners ran the \"Reorder stock\" scenario. 7 of 8 did not find the Reorder button within 3 minutes; 5 of them asked the moderator where to reorder. Quotes: \"I expected it next to the item, not in the menu.\" \"Is there even a reorder?\"",
+      "expected": "refutes",
+      "rationale": "Same persona, same behaviour, and 7/8 failed. This directly lowers the likelihood of the assumption."
+    },
+    {
+      "id": "ev_03",
+      "title": "Evidence from a different persona",
+      "difficulty": "edge",
+      "tags": [
+        "protopilot",
+        "persona-mismatch",
+        "distractor"
+      ],
+      "input": "ASSUMPTION: Warehouse managers will use the bulk-adjust screen to correct stock counts at the end of a shift.\n\nOBSERVATION: Prototype test \"Bulk adjust\", 9 sessions. Screening showed all 9 participants were store cashiers; none manage a warehouse. 8 of 9 used bulk-adjust to correct counts and said it was \"easy\". No warehouse managers took part.",
+      "expected": "neutral",
+      "rationale": "Strongly positive results, but from cashiers, not the persona the assumption names. Protopilot keeps eligibility separate from support: ineligible sessions do not bear on the assumption. Weak models answer supports."
+    },
+    {
+      "id": "ev_04",
+      "title": "Tiny sample, strong result",
+      "difficulty": "edge",
+      "tags": [
+        "protopilot",
+        "small-sample",
+        "quantitative"
+      ],
+      "input": "ASSUMPTION: Freelance designers will connect their bank account during onboarding rather than skip the step.\n\nOBSERVATION: Only 2 qualified freelance designers completed the test so far. Both connected their bank account on the first attempt; neither looked for a skip option. Quote: \"Of course, that's how I get paid.\"",
+      "expected": "supports",
+      "rationale": "n=2 is weak evidence, but per the rule direction is judged, not strength. Both observations point toward the assumption. Models that conflate low confidence with neutral get this wrong."
+    },
+    {
+      "id": "ev_05",
+      "title": "Supports a neighbouring assumption (use vs pay)",
+      "difficulty": "hard",
+      "tags": [
+        "protopilot",
+        "neighbouring-claim",
+        "distractor"
+      ],
+      "input": "ASSUMPTION: Freelancers will pay a monthly fee for automatic invoice reminders.\n\nOBSERVATION: 8 qualified freelancers tried the \"Invoice reminders\" prototype. 8 of 8 enabled automatic reminders and 6 set custom schedules. Quotes: \"This would save me so many awkward emails.\" \"Love it.\" No price, plan or fee was shown anywhere in the prototype, and no session included any willingness-to-pay question (nobody was asked whether or how much they would pay).",
+      "expected": "neutral",
+      "rationale": "The assumption is about paying a monthly fee. The observation shows only usage and enthusiasm; payment was never shown or asked about, so there is no observation of willingness to pay at all. Under rule 3, evidence for the neighbouring claim 'freelancers want and use reminders' does not count, and missing evidence is not refutation, so the answer is neutral. The 8/8 enthusiasm is a strong distractor toward supports."
+    },
+    {
+      "id": "ev_06",
+      "title": "Double negation in the assumption",
+      "difficulty": "edge",
+      "tags": [
+        "protopilot",
+        "negation"
+      ],
+      "input": "ASSUMPTION: It is not true that tutors won't schedule sessions unless calendar sync is enabled.\n\nOBSERVATION: Prototype test with calendar sync disabled for all participants. 6 of 7 qualified private tutors scheduled at least one session using the in-app scheduler. Quote: \"I just put it in manually, no big deal.\"",
+      "expected": "supports",
+      "rationale": "Restated positively: tutors WILL schedule sessions even without calendar sync. 6/7 did so with sync disabled, which supports it. Models that lose a negation answer refutes."
+    },
+    {
+      "id": "ev_07",
+      "title": "Completion count vs pre-registered threshold (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "protopilot",
+        "threshold",
+        "templated",
+        "boundary"
+      ],
+      "vars": {
+        "c": {
+          "type": "int",
+          "min": 4,
+          "max": 12
+        }
+      },
+      "input": "ASSUMPTION: At least 9 of 12 qualified shoppers will complete guest checkout without creating an account.\n\nOBSERVATION: Prototype test \"Guest checkout\", 12 qualified shoppers, no disconnects. {{c}} of 12 completed guest checkout without creating an account; the rest either created an account or abandoned at the address step.",
+      "expected_expr": "vars.c >= 9 ? 'supports' : 'refutes'",
+      "rationale": "The assumption pre-registers a threshold. Meeting it (c >= 9, inclusive) supports; falling short refutes. c = 8 is the near-miss that models round up; c = 9 is the inclusive boundary."
+    },
+    {
+      "id": "ev_08",
+      "title": "Sessions disconnected before the step",
+      "difficulty": "medium",
+      "tags": [
+        "protopilot",
+        "no-observation",
+        "disconnect"
+      ],
+      "input": "ASSUMPTION: Clinic receptionists will confirm a rescheduled appointment from the SMS preview screen.\n\nOBSERVATION: 6 qualified clinic receptionists started the \"Reschedule\" test. All 6 sessions disconnected (prototype failed to load the SMS preview due to a broken link) before reaching the SMS preview screen. No participant saw or interacted with the confirm action. Two participants emailed afterwards: \"The page never loaded.\"",
+      "expected": "neutral",
+      "rationale": "Nobody reached the screen the assumption is about. In Protopilot, missing observations and disconnects are not refutation. Weak models read 0/6 confirmations as refutes."
+    },
+    {
+      "id": "ev_09",
+      "title": "Preference refuted despite one supportive quote",
+      "difficulty": "medium",
+      "tags": [
+        "protopilot",
+        "quotes",
+        "distractor",
+        "quantitative"
+      ],
+      "input": "ASSUMPTION: Clinic receptionists prefer booking appointments by phone over the online booking form.\n\nOBSERVATION: 10 qualified clinic receptionists were offered both a phone-booking flow and the online form for the same booking task, in randomised order. 9 of 10 chose the online form for the final booking and rated it higher. Quotes: \"Phone takes forever when the line is busy.\" One participant said: \"I'd still rather just call, honestly.\"",
+      "expected": "refutes",
+      "rationale": "With a fair, randomised choice, 9/10 preferred the form, which makes the phone-preference assumption less likely. The single pro-phone quote is a distractor."
+    },
+    {
+      "id": "ev_10",
+      "title": "Which persona does the evidence cover? (templated)",
+      "difficulty": "hard",
+      "tags": [
+        "protopilot",
+        "persona-mismatch",
+        "templated"
+      ],
+      "vars": {
+        "p": {
+          "type": "choice",
+          "options": [
+            "dispatchers",
+            "drivers",
+            "fleet managers"
+          ]
+        }
+      },
+      "input": "ASSUMPTION: {{p}} can assign a delivery route to a vehicle in under 30 seconds.\n\nOBSERVATION: Prototype test \"Route board\", 8 participants, all screened and qualified as dispatchers. 7 of 8 assigned a route to a vehicle in under 30 seconds (median 18s). Drivers and fleet managers were not recruited for this test.",
+      "expected_expr": "vars.p === 'dispatchers' ? 'supports' : 'neutral'",
+      "rationale": "Only dispatchers were observed. If the assumption names dispatchers, 7/8 under 30s supports it; for drivers or fleet managers the evidence concerns a different population and is neutral."
+    }
+  ]
+}

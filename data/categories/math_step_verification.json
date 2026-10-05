@@ -1,0 +1,216 @@
+{
+  "id": "math_step_verification",
+  "name": "Math Step Verification",
+  "description": "Decide whether ONE marked step in a short derivation or proof follows validly from the lines before it. Covers algebra, inequalities, calculus, probability, linear algebra, number theory, induction, set theory and propositional logic. This measures whether a model checks the side conditions a step silently relies on (non-zero divisors, sign of a multiplier, independence, commutativity, interchange of limits) instead of accepting a conclusion because it looks familiar or happens to be true. It is the same judgement a reviewer makes when auditing a single transformation in a derived formula, a financial model or a proof.",
+  "system_prompt": "You are a careful mathematics reviewer. The input shows a short derivation or proof. Exactly one line is marked \">>> STEP UNDER REVIEW\".\nDecide whether THAT step follows validly from the lines before it.\nRules:\n1. Judge only the marked step. Every earlier line is assumed to be true, even if it looks odd.\n2. The step may use the earlier lines, standard definitions, and standard facts of elementary arithmetic, algebra, calculus, probability, linear algebra, number theory, set theory and logic. Anything else it relies on (independence of events, commutativity of matrices, a non-zero divisor, the sign of a multiplier, interchanging a limit and an integral) must be established by the earlier lines or by the step itself.\n3. A step whose conclusion happens to be true but does not follow from the earlier lines, or that is justified by an invalid argument, is INVALID.\n4. A step that states a false intermediate fact (for example a wrong congruence or a wrong derivative) is INVALID.\n5. Variables are real numbers unless stated otherwise; matrices are square n×n with real entries.\ndecision must be \"valid\" or \"invalid\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "valid",
+      "invalid"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Does the line marked \">>> STEP UNDER REVIEW\" follow validly from the lines before it? Rules: (1) Judge only the marked step; every earlier line is assumed true. (2) The step may use earlier lines, standard definitions and standard facts of elementary arithmetic, algebra, calculus, probability, linear algebra, number theory, set theory and logic; anything else it relies on (independence of events, commuting matrices, a non-zero divisor, the sign of a multiplier when scaling an inequality (for an equation any non-zero divisor, positive or negative, is fine), interchanging a limit and an integral) must be established by earlier lines or the step itself. A condition counts as established when it follows directly from earlier lines, e.g. by substituting a value they fix (if x = 5 is given, dividing by x - 2 divides by 3 and is valid, but dividing by x - 5 divides by 0 and is invalid). (3) A step whose conclusion is true but does not follow, or is justified by an invalid argument, is invalid. (4) A step stating a false intermediate fact (e.g. wrong congruence or derivative) is invalid. (5) Variables are real unless stated; matrices are square n x n real.",
+    "criteria": {
+      "true": "Valid: the marked step follows from the earlier lines and standard facts, with every needed condition established.",
+      "false": "Invalid: the marked step does not follow, relies on an unestablished condition, uses an invalid argument, or states a false fact."
+    },
+    "true_option": "valid",
+    "false_option": "invalid"
+  },
+  "cases": [
+    {
+      "id": "math_01",
+      "title": "Divide by (x − a) when x is fixed (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "algebra",
+        "division-by-zero",
+        "templated"
+      ],
+      "vars": {
+        "a": {
+          "type": "int",
+          "min": 1,
+          "max": 6
+        },
+        "b": {
+          "type": "int",
+          "min": 1,
+          "max": 6
+        }
+      },
+      "input": "Line 1: x = {{b}}.\nLine 2: (x − {{a}})·y = 3·(x − {{a}}).\n>>> STEP UNDER REVIEW: Dividing both sides of Line 2 by (x − {{a}}), we get y = 3.",
+      "expected_expr": "vars.a !== vars.b ? 'valid' : 'invalid'",
+      "rationale": "Line 1 fixes x, so x − a = b − a. When a ≠ b the divisor is a non-zero constant and the division is valid. When a = b, Line 2 reads 0 = 0 and says nothing about y, so dividing by zero to conclude y = 3 is invalid. Checked with node over all 36 (a, b) pairs: invalid exactly on the diagonal. Weak models apply the cancellation reflexively or forget to substitute Line 1."
+    },
+    {
+      "id": "math_02",
+      "title": "Divide an inequality by c of unknown sign (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "inequalities",
+        "sign-flip",
+        "division-by-zero",
+        "templated"
+      ],
+      "vars": {
+        "c": {
+          "type": "int",
+          "min": -5,
+          "max": 5
+        }
+      },
+      "input": "Line 1: c = {{c}}.\nLine 2: c·x < 12.\n>>> STEP UNDER REVIEW: Dividing both sides of Line 2 by c gives x < 12/c.",
+      "expected_expr": "vars.c > 0 ? 'valid' : 'invalid'",
+      "rationale": "Dividing by a positive number preserves the inequality, so the step is valid for c > 0. For c < 0 the inequality must flip to x > 12/c, so keeping \"<\" is invalid. For c = 0, Line 2 is 0 < 12 and division by zero is undefined, so the step is invalid. Checked with node for c in −5..5: valid exactly for c = 1..5."
+    },
+    {
+      "id": "math_03",
+      "title": "Reduce 7 modulo 5 before raising to a power (templated)",
+      "difficulty": "easy",
+      "tags": [
+        "number-theory",
+        "modular-arithmetic",
+        "templated"
+      ],
+      "vars": {
+        "r": {
+          "type": "int",
+          "min": -3,
+          "max": 12
+        }
+      },
+      "input": "Goal: find the remainder of 7^4 on division by 5.\nLine 1: Congruence mod 5 is preserved by multiplication, so if a ≡ b (mod 5) then a^4 ≡ b^4 (mod 5).\n>>> STEP UNDER REVIEW: Since 7 ≡ {{r}} (mod 5), Line 1 gives 7^4 ≡ ({{r}})^4 (mod 5).",
+      "expected_expr": "(((7 - vars.r) % 5) + 5) % 5 === 0 ? 'valid' : 'invalid'",
+      "rationale": "The step is valid iff the congruence 7 ≡ r (mod 5) is true, i.e. 5 divides 7 − r; then Line 1 applies directly. In −3..12 that holds for r ∈ {−3, 2, 7, 12}. For any other r the step asserts a false congruence (rule 4) and is invalid. Checked with node by computing (7 − r) mod 5 with a non-negative remainder. Weak models trust the stated congruence or mishandle negative r."
+    },
+    {
+      "id": "math_04",
+      "title": "Chain rule exponent (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "calculus",
+        "chain-rule",
+        "templated"
+      ],
+      "vars": {
+        "n": {
+          "type": "int",
+          "min": 2,
+          "max": 6
+        },
+        "m": {
+          "type": "int",
+          "min": 1,
+          "max": 6
+        }
+      },
+      "input": "Line 1: f(x) = sin(x^{{n}}).\nLine 2: By the chain rule, f′(x) = cos(x^{{n}}) · d/dx[x^{{n}}].\n>>> STEP UNDER REVIEW: Therefore f′(x) = {{n}}·x^{{m}}·cos(x^{{n}}).",
+      "expected_expr": "vars.m === vars.n - 1 ? 'valid' : 'invalid'",
+      "rationale": "d/dx[x^n] = n·x^(n−1), so the step is valid iff m = n − 1. Any other exponent is a wrong derivative and the step is invalid. Checked with node by comparing a central finite difference of sin(x^n) against n·x^m·cos(x^n) at x = 1.3: they agree only when m = n − 1. Weak models check that the factor n and cos(x^n) are present and skip the exponent."
+    },
+    {
+      "id": "math_05",
+      "title": "Set difference distributes over intersection",
+      "difficulty": "medium",
+      "tags": [
+        "set-theory",
+        "de-morgan"
+      ],
+      "input": "Let A, B, C be subsets of a universal set U.\nLine 1: For any sets, A \\ X = A ∩ Xᶜ.\nLine 2: A \\ (B ∩ C) = A ∩ (B ∩ C)ᶜ.\n>>> STEP UNDER REVIEW: By De Morgan's law (B ∩ C)ᶜ = Bᶜ ∪ Cᶜ and distributivity of ∩ over ∪, A \\ (B ∩ C) = (A ∩ Bᶜ) ∪ (A ∩ Cᶜ) = (A \\ B) ∪ (A \\ C).",
+      "expected": "valid",
+      "rationale": "De Morgan gives (B ∩ C)ᶜ = Bᶜ ∪ Cᶜ, intersection distributes over union, and Line 1 converts each term back to a set difference. Every move is a standard identity. Weak models confuse it with the false A \\ (B ∩ C) = (A \\ B) ∩ (A \\ C)."
+    },
+    {
+      "id": "math_06",
+      "title": "Swapping limit and integral without justification",
+      "difficulty": "hard",
+      "tags": [
+        "calculus",
+        "analysis",
+        "limit-interchange"
+      ],
+      "input": "Line 1: For n ≥ 1 define f_n(x) = 2n·x·e^(−n·x²) on [0, 1].\nLine 2: For every fixed x in [0, 1], lim_{n→∞} f_n(x) = 0.\n>>> STEP UNDER REVIEW: Therefore lim_{n→∞} ∫₀¹ f_n(x) dx = ∫₀¹ lim_{n→∞} f_n(x) dx = ∫₀¹ 0 dx = 0.",
+      "expected": "invalid",
+      "rationale": "Pointwise convergence alone does not permit interchanging the limit and the integral; that needs uniform convergence, dominated or monotone convergence, none of which is established. Here the conclusion is also false: ∫₀¹ f_n = 1 − e^(−n) → 1. The sequence has a spike of height about √(2n/e) near x = 1/√(2n), so there is no integrable dominating function. Verified numerically with node."
+    },
+    {
+      "id": "math_07",
+      "title": "Assumes independence that was never given",
+      "difficulty": "medium",
+      "tags": [
+        "probability",
+        "independence"
+      ],
+      "input": "A card is drawn from a well-shuffled deck. Let A be the event \"the card is red\" and B the event \"the card is a heart\".\nLine 1: P(A) = 1/2.\nLine 2: P(B) = 1/4.\n>>> STEP UNDER REVIEW: Therefore P(A ∩ B) = P(A)·P(B) = 1/8.",
+      "expected": "invalid",
+      "rationale": "The product rule requires A and B to be independent, which is neither stated nor true. Every heart is red, so A ∩ B = B and P(A ∩ B) = 1/4. A weak model applies the multiplication rule by reflex."
+    },
+    {
+      "id": "math_08",
+      "title": "Binomial expansion for matrices",
+      "difficulty": "medium",
+      "tags": [
+        "linear-algebra",
+        "commutativity"
+      ],
+      "input": "Let A and B be n×n real matrices (n ≥ 2). Nothing else is known about them.\nLine 1: (A + B)² = (A + B)(A + B).\n>>> STEP UNDER REVIEW: Expanding, (A + B)² = A² + 2AB + B².",
+      "expected": "invalid",
+      "rationale": "Expanding gives A² + AB + BA + B². Combining AB + BA into 2AB requires AB = BA, which is not given and fails in general (e.g. A = [[0,1],[0,0]], B = [[0,0],[1,0]]). A weak model carries the scalar identity over to matrices."
+    },
+    {
+      "id": "math_09",
+      "title": "Inductive step uses P(k) correctly",
+      "difficulty": "easy",
+      "tags": [
+        "induction",
+        "sums"
+      ],
+      "input": "Claim P(n): 1 + 2 + … + n = n(n + 1)/2 for every integer n ≥ 1.\nLine 1: Base case: P(1) holds since 1 = 1·2/2.\nLine 2: Inductive hypothesis: assume P(k) holds for some k ≥ 1, i.e. 1 + 2 + … + k = k(k + 1)/2.\n>>> STEP UNDER REVIEW: Then 1 + 2 + … + k + (k + 1) = k(k + 1)/2 + (k + 1) = (k + 1)(k + 2)/2, so P(k + 1) holds.",
+      "expected": "valid",
+      "rationale": "The step adds (k + 1) to both sides of the hypothesis P(k) and simplifies: k(k+1)/2 + (k+1) = (k+1)(k/2 + 1) = (k+1)(k+2)/2. It uses P(k), not P(k+1), so it is a correct inductive step."
+    },
+    {
+      "id": "math_10",
+      "title": "Affirming the consequent",
+      "difficulty": "medium",
+      "tags": [
+        "logic",
+        "fallacy",
+        "number-theory"
+      ],
+      "input": "Let n be an integer.\nLine 1: If n is divisible by 4, then n is even.\nLine 2: n is even.\n>>> STEP UNDER REVIEW: By Line 1 and Line 2, n is divisible by 4.",
+      "expected": "invalid",
+      "rationale": "From \"P → Q\" and \"Q\" one cannot infer \"P\" (affirming the consequent). n = 6 is even but not divisible by 4. A weak model reads Line 1 as a biconditional."
+    },
+    {
+      "id": "math_11",
+      "title": "True result from cancelling digits",
+      "difficulty": "edge",
+      "tags": [
+        "arithmetic",
+        "true-but-unjustified",
+        "fallacy"
+      ],
+      "input": "Line 1: a = 16/64.\n>>> STEP UNDER REVIEW: Cancelling the 6 in the numerator against the 6 in the denominator, a = 1/4.",
+      "expected": "invalid",
+      "rationale": "The result 16/64 = 1/4 is true, but \"cancelling\" a shared digit is not a valid operation (it fails for 12/24, which would give 1/4). Under rule 3, a true conclusion justified by an invalid argument is invalid. A weak model checks only that 1/4 is the correct value."
+    },
+    {
+      "id": "math_12",
+      "title": "Reciprocal inequality reverses correctly",
+      "difficulty": "edge",
+      "tags": [
+        "inequalities",
+        "looks-suspicious",
+        "sign-flip"
+      ],
+      "input": "Line 1: x > 0 and y > 0.\nLine 2: 1/x < 1/y.\n>>> STEP UNDER REVIEW: Multiplying both sides of Line 2 by xy, which is positive by Line 1, gives y < x, i.e. x > y.",
+      "expected": "valid",
+      "rationale": "Since x, y > 0, xy > 0 and multiplying by it preserves the inequality: (1/x)·xy = y and (1/y)·xy = x, so y < x. The apparent \"flip\" relative to Line 2 is a correct consequence, not a sign error. A weak model sees the reversed variables and flags a missing sign flip."
+    }
+  ]
+}

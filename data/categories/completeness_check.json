@@ -1,0 +1,252 @@
+{
+  "id": "completeness_check",
+  "name": "Completeness Check",
+  "description": "Decide whether an artifact contains every required part for its type: a Bropilot node, a Protopilot assumption, or a bug report. Incomplete nodes and assumptions break downstream steps (graph wiring, testable prototypes), and placeholders like \"TBD\" look filled in while carrying no information.",
+  "system_prompt": "You judge whether an artifact is complete for its stated type. Required parts per type:\n1. Bropilot node: kind (a valid Bropilot node kind), name, description (a real sentence about the node), space (basics, problem, solution or crosscutting), and at least one edge attached to another node.\n2. Protopilot assumption: statement (the thing believed), why it matters (the decision or risk it informs), how it will be tested, and a success signal (the observation that would confirm it or change your mind).\n3. Bug report: steps to reproduce, expected behaviour, actual behaviour, and environment (device/OS/browser/build).\n4. ERP purchase order: vendor, line items with qty and unit price, delivery date, cost centre, and approver.\n5. Academic abstract: background, method, result, and conclusion.\nRules: a required part counts as missing if it is absent, empty, or only a placeholder (for example TBD, N/A, ???, \"to be decided\", \"figure it out later\"). Extra fields that are not on the checklist do not make up for a missing part. Formatting does not matter; a part may appear in prose as long as its content is clearly stated. Decide \"complete\" only if every required part is present with real content; otherwise \"incomplete\". Respond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "complete",
+      "incomplete"
+    ]
+  },
+  "decision": {
+    "primitive": "noul",
+    "instructions": "Is the artifact complete for its stated type? Required parts per type: (1) Bropilot node: kind (a valid node kind), name, description (a real sentence about the node), space (basics, problem, solution or crosscutting), and at least one edge to another node. (2) Protopilot assumption: statement, why it matters (decision or risk it informs), how it will be tested, and a success signal. (3) Bug report: steps to reproduce, expected behaviour, actual behaviour, environment (device/OS/browser/build). (4) ERP purchase order: vendor, line items with qty and unit price, delivery date, cost centre, approver. (5) Academic abstract: background, method, result, conclusion. A part is missing if absent, empty, or only a placeholder (TBD, N/A, ???, \"to be decided\", \"figure it out later\"). Extra fields do not make up for a missing part. Formatting does not matter; a part may appear in prose if its content is clearly stated.",
+    "criteria": {
+      "true": "Complete: every required part for the stated type is present with real (non-placeholder) content.",
+      "false": "Incomplete: at least one required part is absent, empty, or only a placeholder."
+    },
+    "true_option": "complete",
+    "false_option": "incomplete"
+  },
+  "cases": [
+    {
+      "id": "cc_01",
+      "title": "Persona node, fully specified",
+      "difficulty": "easy",
+      "tags": [
+        "bropilot",
+        "node"
+      ],
+      "input": "Artifact type: Bropilot node\nKind: persona\nName: Field sales rep\nDescription: A salesperson who visits several clients a day and works mostly from a phone with patchy signal.\nSpace: problem\nEdges: persona --motivates--> usecase \"Pre-meeting client brief\"",
+      "expected": "complete",
+      "rationale": "All five parts present with real content."
+    },
+    {
+      "id": "cc_02",
+      "title": "Node with unset space",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "node",
+        "placeholder"
+      ],
+      "input": "Artifact type: Bropilot node\nKind: behaviour\nName: Apply late fee\nDescription: When an invoice is more than 30 days overdue, add a 2% fee.\nSpace: (not set)\nEdges: behaviour --emits--> event \"LateFeeApplied\"",
+      "expected": "incomplete",
+      "rationale": "Space is a required part and is unset."
+    },
+    {
+      "id": "cc_03",
+      "title": "Full assumption",
+      "difficulty": "easy",
+      "tags": [
+        "protopilot",
+        "assumption"
+      ],
+      "input": "Artifact type: Protopilot assumption\nStatement: Testers will read the intro screen before starting the Prototype test.\nWhy it matters: If they skip it, they will misread the task and every result on the checkout step is contaminated, which decides whether we trust the whole round.\nHow it will be tested: Record scroll depth and dwell time on the intro screen for the first 10 testers.\nSuccess signal: At least 8 of 10 testers spend more than 15 seconds on the intro screen.",
+      "expected": "complete",
+      "rationale": "Statement, importance, test method and success signal are all concrete."
+    },
+    {
+      "id": "cc_04",
+      "title": "Assumption missing success signal, extra fields",
+      "difficulty": "edge",
+      "tags": [
+        "protopilot",
+        "assumption",
+        "distractor"
+      ],
+      "input": "Artifact type: Protopilot assumption\nOwner: Dana\nConfidence before testing: 70%\nCreated: 2026-09-14\nStatement: Small business owners will pay monthly rather than annually.\nWhy it matters: Pricing page layout and cash-flow forecasts depend on the default billing period.\nHow it will be tested: Show two pricing pages to 20 screened testers and record which plan each picks.",
+      "expected": "incomplete",
+      "rationale": "No success signal. Owner, confidence and date are extra fields that do not substitute for a required part."
+    },
+    {
+      "id": "cc_05",
+      "title": "Terse but full bug report",
+      "difficulty": "medium",
+      "tags": [
+        "bug",
+        "report"
+      ],
+      "input": "Artifact type: bug report\nSteps: 1) Open Settings. 2) Toggle \"Dark mode\" on. 3) Reload the page.\nExpected: Dark mode stays on.\nActual: Page reloads in light mode and the toggle shows off.\nEnvironment: macOS 15.2, Safari 18.2, web build 4.12.0",
+      "expected": "complete",
+      "rationale": "Short, but all four required parts have real content."
+    },
+    {
+      "id": "cc_06",
+      "title": "Bug report with TBD environment",
+      "difficulty": "edge",
+      "tags": [
+        "bug",
+        "report",
+        "placeholder"
+      ],
+      "input": "Artifact type: bug report\nSteps: 1) Add two items to the cart. 2) Tap Pay. 3) Wait on the spinner.\nExpected: The payment sheet opens within three seconds.\nActual: The spinner runs forever and nothing opens.\nEnvironment: TBD",
+      "expected": "incomplete",
+      "rationale": "A placeholder is not content, so environment is missing."
+    },
+    {
+      "id": "cc_07",
+      "title": "Bug report environment variants (templated)",
+      "difficulty": "hard",
+      "tags": [
+        "bug",
+        "report",
+        "templated",
+        "placeholder"
+      ],
+      "vars": {
+        "env": {
+          "type": "choice",
+          "options": [
+            "iOS 18.1, Chrome 131, build 4.12.1",
+            "TBD",
+            "N/A",
+            "Windows 11, Edge 130, build 4.12.0"
+          ]
+        }
+      },
+      "input": "Artifact type: bug report\nSteps: 1) Open the Reports page. 2) Click Export CSV.\nExpected: A CSV file downloads.\nActual: Nothing happens and the console shows a 500 error.\nEnvironment: {{env}}",
+      "expected_expr": "(vars.env === 'TBD' || vars.env === 'N/A') ? 'incomplete' : 'complete'",
+      "rationale": "Concrete environments are complete. TBD and N/A are placeholders and count as missing under the stated rules."
+    },
+    {
+      "id": "cc_08",
+      "title": "Node edge count (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "bropilot",
+        "node",
+        "templated"
+      ],
+      "vars": {
+        "n": {
+          "type": "int",
+          "min": 0,
+          "max": 3
+        }
+      },
+      "input": "Artifact type: Bropilot node\nKind: module\nName: Billing Core\nDescription: The code that issues invoices and applies tax rules.\nSpace: solution\nNumber of edges attached to other nodes: {{n}}",
+      "expected_expr": "vars.n >= 1 ? 'complete' : 'incomplete'",
+      "rationale": "Every other part is present, so completeness depends only on having at least one edge."
+    },
+    {
+      "id": "cc_09",
+      "title": "Assumption with vague test plan",
+      "difficulty": "hard",
+      "tags": [
+        "protopilot",
+        "assumption",
+        "placeholder"
+      ],
+      "input": "Artifact type: Protopilot assumption\nStatement: Managers want a weekly digest email instead of live notifications.\nWhy it matters: It decides whether we build the digest scheduler or the real-time notification channel first.\nHow it will be tested: We'll figure it out later once the prototype exists.\nSuccess signal: Most testers pick the digest.",
+      "expected": "incomplete",
+      "rationale": "\"Figure it out later\" is a placeholder for the test method. The success signal is present but vague, which is acceptable under the checklist; the missing method is what fails."
+    },
+    {
+      "id": "cc_10",
+      "title": "Bug report written as one paragraph",
+      "difficulty": "edge",
+      "tags": [
+        "bug",
+        "report",
+        "format"
+      ],
+      "input": "Artifact type: bug report\nBody: On my iPhone 14 running iOS 18.1 with app build 4.12.1, I open Profile, tap \"Change avatar\", pick a photo from the library and tap Save. I expected the new avatar to appear on the Profile screen, but the old avatar stays and a toast says \"Saved\" anyway.",
+      "expected": "complete",
+      "rationale": "Steps, expected, actual and environment are all clearly stated in prose. Format does not matter."
+    },
+    {
+      "id": "cc_11",
+      "title": "Academic abstract complete",
+      "difficulty": "easy",
+      "tags": [
+        "academic",
+        "abstract",
+        "complete"
+      ],
+      "input": "Artifact type: Academic abstract\n\nBackground: 'Antibiotic resistance in pathogenic bacteria is a growing public health threat.'\nMethod: 'We screened 500 natural compounds for antimicrobial activity using broth microdilution assays.'\nResult: 'Compound X from plant species Y showed inhibition of 12 resistant strains, with MIC range 2–8 µg/mL.'\nConclusion: 'Compound X is a promising candidate for further development as a novel antibiotic.'",
+      "expected": "complete",
+      "rationale": "All four required parts are present with substantive content: background establishes the need, method is specific, result is quantified, conclusion is drawn. Complete."
+    },
+    {
+      "id": "cc_12",
+      "title": "ERP purchase order",
+      "difficulty": "easy",
+      "tags": [
+        "ERP",
+        "purchase-order"
+      ],
+      "input": "Artifact type: ERP purchase order\n\nVendor: Acme Supply Inc.\nLine items:\n  - Item SKU-001: Qty 50, Unit price $2.00, Line total $100.00\n  - Item SKU-002: Qty 20, Unit price $5.50, Line total $110.00\nDelivery date: 2024-10-31\nCost centre: CC-500 (Operations)\nApprover: John Smith (Purchasing Manager)",
+      "expected": "complete",
+      "rationale": "Vendor, line items with qty and unit price, delivery date, cost centre, and approver are all specified. Complete."
+    },
+    {
+      "id": "cc_13",
+      "title": "Purchase order with TBD delivery date",
+      "difficulty": "medium",
+      "tags": [
+        "accounting",
+        "three-way-match",
+        "incomplete"
+      ],
+      "input": "Artifact type: ERP purchase order\n\nVendor: Smith Logistics\nLine items:\n  - Item A: Qty 100, Unit price $10.00\nDelivery date: TBD\nCost centre: CC-200\nApprover: Jane Doe",
+      "expected": "incomplete",
+      "rationale": "Delivery date is a placeholder (TBD), which counts as missing content. The artifact cannot be used for receiving or payment without a delivery commitment."
+    },
+    {
+      "id": "cc_14",
+      "title": "Onboarding assumption with templated test plan and signal",
+      "difficulty": "medium",
+      "tags": [
+        "HR",
+        "onboarding",
+        "templated"
+      ],
+      "vars": {
+        "test_plan": {
+          "type": "choice",
+          "options": [
+            "Check IT tickets and survey the new hire at the end of day 1.",
+            "TBD"
+          ]
+        },
+        "success_signal": {
+          "type": "choice",
+          "options": [
+            "Both SSO and equipment are ready by 9 AM on the start date for at least 9 of 10 new hires.",
+            "???",
+            "to be decided"
+          ]
+        }
+      },
+      "input": "Artifact type: Protopilot assumption\n\nAssumption: New hires in the 'Software Engineer' role can be productive on day 1 only if SSO provisioning and equipment setup are finished before they arrive.\nWhy it matters: Delays in either block the employee's first day, so it decides whether IT must start provisioning a week before the start date.\nHow it will be tested: {{test_plan}}\nSuccess signal: {{success_signal}}",
+      "expected_expr": "(vars.test_plan !== 'TBD' && vars.success_signal.startsWith('Both')) ? 'complete' : 'incomplete'",
+      "rationale": "Statement and why-it-matters are always real. The assumption is complete only when the test plan is real (not 'TBD') and the success signal is a real observation (not '???' or 'to be decided'); any placeholder makes it incomplete."
+    },
+    {
+      "id": "cc_15",
+      "title": "Bug report about a blank contract clause",
+      "difficulty": "edge",
+      "tags": [
+        "law",
+        "contract",
+        "edge"
+      ],
+      "input": "Artifact type: Bug report\n\nSteps to reproduce: 'Review the signed contract version 2.1 dated 2024-10-01.'\nExpected behaviour: 'Section 5 (Intellectual Property) should state that the vendor retains ownership of pre-existing IP.'\nActual behaviour: 'Section 5 is blank (no text).'\nEnvironment: Legal system version 3.2, uploaded 2024-10-02.",
+      "expected": "complete",
+      "rationale": "Judged as its stated type (bug report): steps to reproduce, expected behaviour, actual behaviour and environment (system version/build) are all present with real content. The 'blank' section is the defect being reported, not a missing part of the report. A weak model confuses the missing contract text with a missing report part."
+    }
+  ]
+}

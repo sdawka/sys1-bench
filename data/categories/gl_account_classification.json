@@ -1,0 +1,210 @@
+{
+  "id": "gl_account_classification",
+  "name": "GL Account Classification",
+  "description": "Classify the general-ledger account affected by a business event into one of six classes (asset, liability, equity, revenue, expense, cogs). Correct classification drives financial statements, so contra accounts, accruals and inventory-cost conventions are the usual failure points for models that pattern-match on words like \"expense\" or \"payable\".",
+  "system_prompt": "You classify accounts under accrual accounting. Classes:\n- asset: resources owned that will give future benefit (cash, receivables, inventory, prepaids, equipment).\n- liability: obligations owed to others (payables, accrued expenses, unearned revenue, loans, taxes owed).\n- equity: owners' residual interest (capital, retained earnings, owner draws, dividends declared charged to equity).\n- revenue: income earned from operations or other gains.\n- expense: costs of operating the business other than the cost of goods sold (wages, rent, depreciation, insurance expense, freight-out).\n- cogs: cost of the goods sold, and under the PERIODIC inventory system the purchases and freight-in accounts that make up that cost.\nRules: Classify the PRIMARY account affected as asked in the input (\"the debit side\", \"the credit side\", or \"the account named X\"). A contra account takes the class of the account it offsets (accumulated depreciation is asset; sales returns is revenue; treasury stock is equity). Under the PERPETUAL inventory system purchases and freight-in are debited to Inventory (asset). Accrued items are recognised when earned or incurred, not when cash moves.\ndecision must be one of \"asset\",\"liability\",\"equity\",\"revenue\",\"expense\",\"cogs\".\nRespond with ONLY a JSON object: {\"decision\": <value>, \"confidence\": <0..1>, \"reason\": \"<one sentence>\"}",
+  "output": {
+    "type": "enum",
+    "options": [
+      "asset",
+      "liability",
+      "equity",
+      "revenue",
+      "expense",
+      "cogs"
+    ]
+  },
+  "decision": {
+    "primitive": "choice",
+    "instructions": "Under accrual accounting, which class is the PRIMARY account the input asks about (\"the debit side\", \"the credit side\", or \"the account named X\")? A contra account takes the class of the account it offsets (accumulated depreciation is asset; sales returns is revenue; treasury stock is equity). Under the PERPETUAL inventory system, purchases and freight-in are debited to Inventory (asset); under PERIODIC they are cogs. Accrued items are recognised when earned or incurred, not when cash moves.",
+    "criteria": {
+      "asset": "Resources owned that give future benefit (cash, receivables, inventory, prepaids, equipment) and their contra accounts.",
+      "liability": "Obligations owed to others (payables, accrued expenses, unearned revenue, loans, taxes owed).",
+      "equity": "Owners' residual interest (capital, retained earnings, owner draws, dividends declared charged to equity, treasury stock).",
+      "revenue": "Income earned from operations or other gains, and contra-revenue such as sales returns.",
+      "expense": "Operating costs other than cost of goods sold (wages, rent, depreciation, insurance expense, freight-out).",
+      "cogs": "Cost of the goods sold, plus purchases and freight-in under the PERIODIC inventory system."
+    }
+  },
+  "cases": [
+    {
+      "id": "gl_01",
+      "title": "Prepaid insurance paid",
+      "difficulty": "easy",
+      "tags": [
+        "asset",
+        "prepaid"
+      ],
+      "input": "On 1 July the company paid $12,000 cash for a 12-month insurance policy. Classify the debit side.",
+      "expected": "asset",
+      "rationale": "The debit goes to Prepaid Insurance, an asset that is expensed over the policy term."
+    },
+    {
+      "id": "gl_02",
+      "title": "Customer pays in advance",
+      "difficulty": "easy",
+      "tags": [
+        "liability",
+        "unearned-revenue"
+      ],
+      "input": "A customer paid $3,000 in advance for services to be delivered next quarter. Classify the credit side.",
+      "expected": "liability",
+      "rationale": "The credit goes to Unearned Revenue, an obligation to perform, not revenue yet."
+    },
+    {
+      "id": "gl_03",
+      "title": "Owner withdraws cash",
+      "difficulty": "easy",
+      "tags": [
+        "equity",
+        "drawings"
+      ],
+      "input": "The sole proprietor withdrew $2,000 cash for personal use. Classify the debit side.",
+      "expected": "equity",
+      "rationale": "The debit goes to Owner's Drawings, which reduces equity; it is not an expense."
+    },
+    {
+      "id": "gl_04",
+      "title": "Accrued wages at period end",
+      "difficulty": "medium",
+      "tags": [
+        "liability",
+        "accrual"
+      ],
+      "input": "At year end, employees have earned $5,400 of wages that will be paid next week. Classify the credit side of the adjusting entry.",
+      "expected": "liability",
+      "rationale": "The credit goes to Wages Payable (accrued wages), a liability. The debit side would be wages expense."
+    },
+    {
+      "id": "gl_05",
+      "title": "Freight-in under periodic system",
+      "difficulty": "hard",
+      "tags": [
+        "cogs",
+        "inventory-rule"
+      ],
+      "input": "The company uses the PERIODIC inventory system. It paid $450 to a carrier to deliver merchandise purchased for resale. Classify the debit side.",
+      "expected": "cogs",
+      "rationale": "Rule: under the periodic system freight-in is a cost of purchases and is classified as cogs (not asset and not freight-out expense)."
+    },
+    {
+      "id": "gl_06",
+      "title": "Accumulated depreciation (contra-asset)",
+      "difficulty": "edge",
+      "tags": [
+        "contra",
+        "asset"
+      ],
+      "input": "Classify the account named \"Accumulated Depreciation - Equipment\".",
+      "expected": "asset",
+      "rationale": "A contra account takes the class of the account it offsets; it is a credit-balance contra-asset, not an expense or liability."
+    },
+    {
+      "id": "gl_07",
+      "title": "Sales returns and allowances",
+      "difficulty": "edge",
+      "tags": [
+        "contra",
+        "revenue"
+      ],
+      "input": "Classify the account named \"Sales Returns and Allowances\".",
+      "expected": "revenue",
+      "rationale": "It is a contra-revenue account, so it takes the revenue class rather than expense."
+    },
+    {
+      "id": "gl_08",
+      "title": "Dividends declared, credit side",
+      "difficulty": "hard",
+      "tags": [
+        "liability",
+        "dividends"
+      ],
+      "input": "On 15 December the board declared a $10,000 cash dividend payable on 15 January. Classify the credit side of the declaration entry.",
+      "expected": "liability",
+      "rationale": "Once declared the company owes the dividend: Dividends Payable (liability). The debit side (retained earnings/dividends) is equity."
+    },
+    {
+      "id": "gl_09",
+      "title": "Deferred tax liability",
+      "difficulty": "medium",
+      "tags": [
+        "liability",
+        "tax"
+      ],
+      "input": "Classify the account named \"Deferred Tax Liability\".",
+      "expected": "liability",
+      "rationale": "Despite the word 'tax', it is a balance-sheet obligation, not an expense."
+    },
+    {
+      "id": "gl_10",
+      "title": "Account lookup (templated)",
+      "difficulty": "medium",
+      "tags": [
+        "templated",
+        "lookup"
+      ],
+      "vars": {
+        "acct": {
+          "type": "choice",
+          "options": [
+            "Prepaid Rent",
+            "Unearned Revenue",
+            "Common Stock",
+            "Service Revenue",
+            "Rent Expense",
+            "Cost of Goods Sold",
+            "Accounts Receivable",
+            "Retained Earnings"
+          ]
+        }
+      },
+      "input": "Classify the account named \"{{acct}}\".",
+      "expected_expr": "({'Prepaid Rent':'asset','Unearned Revenue':'liability','Common Stock':'equity','Service Revenue':'revenue','Rent Expense':'expense','Cost of Goods Sold':'cogs','Accounts Receivable':'asset','Retained Earnings':'equity'})[vars.acct]",
+      "rationale": "Standard classes for each named account."
+    },
+    {
+      "id": "gl_11",
+      "title": "Perpetual purchase on account (templated side)",
+      "difficulty": "edge",
+      "tags": [
+        "templated",
+        "purchase-on-account",
+        "perpetual"
+      ],
+      "vars": {
+        "side": {
+          "type": "choice",
+          "options": [
+            "debit",
+            "credit"
+          ]
+        }
+      },
+      "input": "The company uses the PERPETUAL inventory system. It bought $5,000 of merchandise for resale on account from a supplier. Classify the {{side}} side.",
+      "expected_expr": "vars.side === 'debit' ? 'asset' : 'liability'",
+      "rationale": "Perpetual: debit is Inventory (asset), credit is Accounts Payable (liability). Not cogs: nothing has been sold."
+    },
+    {
+      "id": "gl_12",
+      "title": "Year-end depreciation entry (templated side)",
+      "difficulty": "edge",
+      "tags": [
+        "templated",
+        "contra",
+        "depreciation"
+      ],
+      "vars": {
+        "side": {
+          "type": "choice",
+          "options": [
+            "debit",
+            "credit"
+          ]
+        }
+      },
+      "input": "Record annual depreciation of $8,000 on equipment. Classify the {{side}} side of the entry.",
+      "expected_expr": "vars.side === 'debit' ? 'expense' : 'asset'",
+      "rationale": "Debit is Depreciation Expense (expense); credit is Accumulated Depreciation, a contra-asset classified as asset."
+    }
+  ]
+}
