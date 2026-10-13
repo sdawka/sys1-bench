@@ -4,6 +4,8 @@ Vite + React 18 + TypeScript app with no backend. It loads every `../data/catego
 
 ## Setup
 
+Requires Node 24.12 or later within major 24. Run `nvm install` and `nvm use` from the repository root to use `.nvmrc`.
+
 ```bash
 cd app
 npm install
@@ -11,10 +13,13 @@ npm install
 echo 'VITE_OPENROUTER_API_KEY=sk-or-...' > .env.local
 npm run dev        # http://localhost:5173
 npm test           # vitest: decisions scorer, question builder, templating, shipped-dataset sanity
+npm run typecheck:scripts  # benchmark and results scripts; also checked in CI
 npm run build      # typecheck + production build into dist/
 ```
 
 You can also paste a key in **Settings** in the header. It is stored in localStorage and takes precedence over `.env.local`. Restart `npm run dev` after editing `.env.local`.
+
+For the published report preview, run `VITE_REPORT_ONLY=1 npm run dev`. The report has searchable model/category filter accordions in a desktop sidebar or a mobile Filters drawer. Its accuracy-versus-cost chart supports hover, keyboard focus, and tap; the ranked accuracy, Brier, and median-latency panels follow below. Detailed model/case tables are collapsed initially. Report filters do not alter the underlying benchmark data.
 
 ## Decisions API
 

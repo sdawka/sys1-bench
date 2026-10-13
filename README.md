@@ -9,6 +9,8 @@ app/                        Vite + React SPA and `npm run bench` CLI: pick decis
 
 ## Quick start
 
+Use Node 24 (24.12 or later). With nvm, run `nvm install` and `nvm use` from the repository root; CI reads the same `.nvmrc`.
+
 ```bash
 cd app
 npm install
@@ -24,6 +26,7 @@ Other commands, run from `app/`:
 
 ```bash
 npm test         # unit tests, plus a sanity check that every shipped case has a valid expected answer
+npm run typecheck:scripts  # typecheck the benchmark and results scripts
 npm run build    # typecheck and build to app/dist
 npm run bench -- --models all --samples 3 --max-cost 2   # headless run, saved to app/results/
 ```

@@ -5,7 +5,7 @@ name: Deploy results to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['app/**', 'data/**', '.github/workflows/pages.yml']
+    paths: ['app/**', 'data/**', '.nvmrc', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,10 +27,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - run: npm run typecheck:scripts
       - run: npm test
       - run: npm run build
         env:
