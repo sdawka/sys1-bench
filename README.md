@@ -30,9 +30,11 @@ npm run bench -- --models all --samples 3 --max-cost 2   # headless run, saved t
 
 ### Decision models
 
-The live list comes from `GET /api/v1/models?output_modalities=decisions`, and calls go to `POST /api/alpha/decisions`. 13 listings collapse to 11 distinct models. `~typesafe/jev-latest` aliases `typesafe/jev-1.13`, and `respan/span-01-lite:free` duplicates `respan/span-01-lite`.
+The live list comes from `GET /api/v1/models?output_modalities=decisions`, and calls go to `POST /api/alpha/decisions`. New decision models are discovered automatically by the CLI; use **Refresh list** in the SPA to update its cached catalog. Aliases and duplicate free listings are collapsed.
 
 `cloudflare/clef`, `cloudflare/clef-flash`, `upstage/solar-decide`, `jaredpalmer/kev-4b` (8k context), `togethercomputer/tev1-4b-experimental`, `typesafe/jev-1.13`, `liquid/d1`, `perplexity/pplx-decider-v1-27b`, `respan/span-01`, `respan/span-01-lite`, `inception/mercury-decide:free`.
+
+The report includes eight models benchmarked on 2026-10-13: `microsoft/microsoft-decision-1`, `nace-ai/drex-v2.0`, `cloudflare/clef-omni`, `perplexity/pplx-decider-v1.1-27b`, `nace-ai/drex-v1.5`, `upstage/solar-decide-flash`, `openai/gpt-6-luna-decisions`, and `inception/mercury-decide`. Each uses the original seed (42), three samples per templated case, and 337 result rows. Perplexity v1.1 replaces the old v1 results; the other original measurements are retained. Solar Decide Flash rejects the 28-option category (maximum 26); every other newly benchmarked model completed without errors. The combined report in `app/public/results/latest.json` contains 17 models and 5,729 results.
 
 The two Respan models only accept `noul` questions. Each category maps to one primitive in its `decision` block. Binary enums use `noul`, unordered multi-option enums use `choice`, and ordered scales (`clarity_score`, `priority_triage`) use `score`. See `app/README.md` for scoring details.
 

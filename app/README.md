@@ -49,6 +49,21 @@ Each result records the predicted label, the probability per label, the confiden
 | `respan/span-01-lite` | free | – | Same as `:free`; accepts `noul` only |
 | `inception/mercury-decide:free` | free | 32k | |
 
+Models benchmarked on 2026-10-13 (337 result rows each, seed 42, three samples per templated case). Perplexity v1.1 replaces the old v1 in the report; the other original measurements remain.
+
+| Model | Input $/1M | Context | Accuracy | Errors |
+|---|---|---|---|---|
+| `microsoft/microsoft-decision-1` | 0.042 | 32k | 96% | 0 |
+| `nace-ai/drex-v2.0` | 0.06 | 131k | 92% | 0 |
+| `cloudflare/clef-omni` | 0.15 | 65k | 89% | 0 |
+| `perplexity/pplx-decider-v1.1-27b` | 0.02 | 262k | 97% | 0 |
+| `nace-ai/drex-v1.5` | 0.04 | 131k | 91% | 0 |
+| `upstage/solar-decide-flash` | 0.05 | 524k | 70% | 14 (11 skipped) |
+| `openai/gpt-6-luna-decisions` | 0.1 | 1,050k | 94% | 0 |
+| `inception/mercury-decide` | 0.02 | 65k | 98% | 0 |
+
+Solar Decide Flash rejects `type_classification` because its 28 options exceed the model's 26-option limit. Errors and skipped cases count as incorrect in overall accuracy.
+
 A model that returns 400 or 422 for a category twice before any success there has that category marked rejected. Its remaining cases are recorded as skipped, with no call made. This covers Respan's noul-only limit and the option caps on `type_classification`'s 28 options: Tev1 accepts at most 20 and Solar Decide at most 26. A model whose first 3 other calls all fail is marked unavailable. Every model runs in its own pool with the configured concurrency, and all models run in parallel. A 429 pauses only that model with exponential backoff and requeues the call once.
 
 ## Tabs
@@ -66,7 +81,12 @@ A model that returns 400 or 422 for a category twice before any success there ha
 npm run bench -- --models all --samples 3 --concurrency 8 --max-cost 2   # 8 in flight per model
 npm run bench -- --models liquid/d1,cloudflare/clef --categories priority_triage,clarity_score
 npm run bench -- --models free --estimate-only     # input tokens ~ chars/4 x price; no calls
+npm run bench -- --models microsoft/microsoft-decision-1,nace-ai/drex-v2.0,cloudflare/clef-omni --samples 3 --seed 42 --max-cost 0.25
+npm run publish-results -- --merge public/results/latest.json results/<new-run>.json
+npm run publish-results -- --merge public/results/latest.json results/<perplexity-run>.json --replace perplexity/pplx-decider-v1-27b=perplexity/pplx-decider-v1.1-27b
 ```
+
+`publish-results --merge` stages a combined local report while retaining earlier models. It requires completed runs with identical categories, seed, sample count, case inputs and expected answers, and rejects overlapping model IDs. `--replace old-model=new-model` removes the old model only after the new model answers every original case without errors. The report now contains 17 models and 5,729 results. Pushing to `main` deploys through the existing Pages workflow.
 
 - **Models.** `all`, `free`, or a comma list of ids.
 - **Categories.** Files whose `decision` block is missing or inconsistent are skipped with a warning.
