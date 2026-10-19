@@ -117,8 +117,8 @@
         }
       },
       "input": "Protopilot assumption: '{{structure}}'",
-      "expected_expr": "vars.structure.startsWith('If we improve') ? 1 : (vars.structure.indexOf('specific: clearer') >= 0 ? 3 : 5)",
-      "rationale": "Structure matters: explicit assumptions with alternatives and testing criteria are far clearer than vague aspirations. The model must prefer specificity and falsifiability."
+      "expected_expr": "vars.structure.startsWith('If we improve') ? 2 : (vars.structure.indexOf('specific: clearer') >= 0 ? 3 : 5)",
+      "rationale": "Structure matters: explicit assumptions with alternatives and testing criteria are far clearer than vague aspirations. The model must prefer specificity and falsifiability. The vague option is 2 (abstract, minimal concrete detail), not 1: it is neither contradictory nor jargon."
     },
     {
       "id": "cs_07",

@@ -36,38 +36,38 @@ For the published report preview, run `VITE_REPORT_ONLY=1 npm run dev`. The repo
 
 Each result records the predicted label, the probability per label, the confidence, and p(expected). The confidence for `noul` is max(p, 1-p). It also records the Brier contribution (1 - p(expected))², input tokens, latency and cost. For `score`, p(expected) sums the levels that would count as correct.
 
-### Models (live list, 2026-10-05)
+### Models (live list and full run, 2026-10-19)
 
-13 listings collapse to 11 distinct models. SPEC.md says 12, but its own list names 11.
+27 listings collapse to 22 distinct models. `~perplexity/pplx-decider-latest`, `~perplexity/pplx-decider-flash-latest` and `~typesafe/jev-latest` are aliases, and `inception/mercury-decide:free` and `respan/span-01-lite:free` duplicate their paid or lite listings. Perplexity v1.1 is no longer listed and was replaced by v1.2.
 
-| Model | Input $/1M | Context | Notes |
-|---|---|---|---|
-| `cloudflare/clef` | 0.24 | 65k | |
-| `cloudflare/clef-flash` | 0.09 | 65k | |
-| `upstage/solar-decide` | 0.05 | 524k | |
-| `jaredpalmer/kev-4b` | 0.042 | 8k | Cases over the context are skipped |
-| `togethercomputer/tev1-4b-experimental` | 0.042 | 32k | |
-| `typesafe/jev-1.13` | 0.042 | 32k | `~typesafe/jev-latest` is an alias of this model |
-| `liquid/d1` | 0.04 | 65k | |
-| `perplexity/pplx-decider-v1-27b` | 0.04 | 262k | |
-| `respan/span-01` | 0.02 | – | Behaviour scoring; accepts `noul` only |
-| `respan/span-01-lite` | free | – | Same as `:free`; accepts `noul` only |
-| `inception/mercury-decide:free` | free | 32k | |
+Every model was run fresh on 2026-10-19 with seed 42, three samples per templated case, and 337 result rows each, for 7,414 results at a total cost of $0.138. Before this run, `clarity_score/cs_06` (the vague option is now scored 2 rather than 1, per the rubric) and `erp_transaction_validation/erp_01` (a stray, misleading tax-code note was removed) were corrected; the other cases flagged as candidate dataset errors were reviewed and kept. Errors and skipped cases count as incorrect in overall accuracy.
 
-Models benchmarked on 2026-10-13 (337 result rows each, seed 42, three samples per templated case). Perplexity v1.1 replaces the old v1 in the report; the other original measurements remain.
+| Model | Input $/1M | Context | Accuracy | Brier | Errors (skipped) | Notes |
+|---|---|---|---|---|---|---|
+| `liquid/d1-ultra` | 0.042 | 32k | 99% | 0.015 | 0 | New |
+| `cloudflare/clef` | 0.042 | 65k | 98% | 0.034 | 0 | |
+| `inception/mercury-decide` | 0.02 | 65k | 98% | 0.017 | 0 | |
+| `respan/span-02` | 0.01 | 131k | 97% | 0.030 | 0 | New; accepts every primitive |
+| `perplexity/pplx-decider-v1.2` | 0.02 | 262k | 97% | 0.022 | 0 | New; replaces v1.1 |
+| `typesafe/jev-1.13` | 0.042 | 262k | 96% | 0.031 | 0 | |
+| `typesafe/jev-1.14` | 0.042 | 262k | 96% | 0.027 | 0 | New; `~typesafe/jev-latest` |
+| `microsoft/microsoft-decision-1` | 0.042 | 32k | 96% | 0.025 | 0 | |
+| `openai/gpt-6-luna-decisions` | 0.1 | 1,050k | 93% | 0.051 | 0 | |
+| `perplexity/pplx-decider-flash-v1.2` | 0.01 | 262k | 93% | 0.058 | 0 | New |
+| `liquid/d1` | 0.02 | 65k | 93% | 0.053 | 0 | |
+| `nace-ai/drex-v2.0` | 0.06 | 131k | 92% | 0.049 | 0 | |
+| `nace-ai/drex-v1.5` | 0.04 | 131k | 92% | 0.066 | 0 | |
+| `scaledown/classify-1` | 0.04 | 1,000k | 91% | 0.099 | 0 | New |
+| `cloudflare/clef-omni` | 0.15 | 65k | 90% | 0.095 | 0 | |
+| `cloudflare/clef-flash` | 0.038 | 24k | 88% | 0.098 | 0 | |
+| `jaredpalmer/kev-4b` | 0.042 | 8k | 87% | 0.114 | 0 | Cases over the context are skipped |
+| `upstage/solar-decide` | 0.05 | 524k | 86% | 0.078 | 14 (11) | Max 26 options |
+| `togethercomputer/tev1-4b-experimental` | 0.042 | 32k | 79% | 0.134 | 14 (7) | Max 20 options |
+| `upstage/solar-decide-flash` | 0.05 | 524k | 74% | 0.175 | 14 (6) | Max 26 options |
+| `respan/span-01` | 0.02 | – | 45% | 0.215 | 118 (78) | Accepts `noul` only |
+| `respan/span-01-lite` | free | – | 45% | 0.215 | 118 (81) | Accepts `noul` only |
 
-| Model | Input $/1M | Context | Accuracy | Errors |
-|---|---|---|---|---|
-| `microsoft/microsoft-decision-1` | 0.042 | 32k | 96% | 0 |
-| `nace-ai/drex-v2.0` | 0.06 | 131k | 92% | 0 |
-| `cloudflare/clef-omni` | 0.15 | 65k | 89% | 0 |
-| `perplexity/pplx-decider-v1.1-27b` | 0.02 | 262k | 97% | 0 |
-| `nace-ai/drex-v1.5` | 0.04 | 131k | 91% | 0 |
-| `upstage/solar-decide-flash` | 0.05 | 524k | 70% | 14 (11 skipped) |
-| `openai/gpt-6-luna-decisions` | 0.1 | 1,050k | 94% | 0 |
-| `inception/mercury-decide` | 0.02 | 65k | 98% | 0 |
-
-Solar Decide Flash rejects `type_classification` because its 28 options exceed the model's 26-option limit. Errors and skipped cases count as incorrect in overall accuracy.
+Every error comes from a primitive or option-count limit. None are transient failures.
 
 A model that returns 400 or 422 for a category twice before any success there has that category marked rejected. Its remaining cases are recorded as skipped, with no call made. This covers Respan's noul-only limit and the option caps on `type_classification`'s 28 options: Tev1 accepts at most 20 and Solar Decide at most 26. A model whose first 3 other calls all fail is marked unavailable. Every model runs in its own pool with the configured concurrency, and all models run in parallel. A 429 pauses only that model with exponential backoff and requeues the call once.
 
@@ -91,7 +91,7 @@ npm run publish-results -- --merge public/results/latest.json results/<new-run>.
 npm run publish-results -- --merge public/results/latest.json results/<perplexity-run>.json --replace perplexity/pplx-decider-v1-27b=perplexity/pplx-decider-v1.1-27b
 ```
 
-`publish-results --merge` stages a combined local report while retaining earlier models. It requires completed runs with identical categories, seed, sample count, case inputs and expected answers, and rejects overlapping model IDs. `--replace old-model=new-model` removes the old model only after the new model answers every original case without errors. The report now contains 17 models and 5,729 results. Pushing to `main` deploys through the existing Pages workflow.
+`publish-results --merge` stages a combined local report while retaining earlier models. It requires completed runs with identical categories, seed, sample count, case inputs and expected answers, and rejects overlapping model IDs. `--replace old-model=new-model` removes the old model only after the new model answers every original case without errors. The current report is a single fresh run (`npm run publish-results -- results/<run>.json`) with 22 models and 7,414 results. Pushing to `main` deploys through the existing Pages workflow.
 
 - **Models.** `all`, `free`, or a comma list of ids.
 - **Categories.** Files whose `decision` block is missing or inconsistent are skipped with a warning.

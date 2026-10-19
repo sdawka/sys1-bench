@@ -29,9 +29,9 @@
         "journal",
         "balance"
       ],
-      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-09-14, currency EUR.\nDr 6200 Travel expense  1,200.00  (CC-100, tax code V1 not applicable)\nDr 1400 Input VAT  240.00  (tax code V2)\nCr 2100 Accounts payable  1,440.00",
+      "input": "MASTER DATA\nPeriods: 2026-08 = CLOSED, 2026-09 = OPEN.\nCost centres: CC-100 (company 1000, active), CC-200 (company 1000, INACTIVE), CC-300 (company 2000, active).\nCompany 1000: currency EUR. Company 2000: currency USD.\nTax codes: V0 (0%), V1 (10%), V2 (20%).\n\nDOCUMENT: Journal entry, company 1000, posting date 2026-09-14, currency EUR.\nDr 6200 Travel expense  1,200.00  (CC-100)\nDr 1400 Input VAT  240.00  (tax code V2)\nCr 2100 Accounts payable  1,440.00",
       "expected": "valid",
-      "rationale": "Debits 1,440.00 = credits 1,440.00, period 2026-09 is open, CC-100 is active in company 1000, tax code V2 exists, currency matches."
+      "rationale": "Debits 1,440.00 = credits 1,440.00, period 2026-09 is open, CC-100 is active in company 1000, tax code V2 exists, currency matches. 240.00 is 20% of 1,200.00, consistent with V2."
     },
     {
       "id": "erp_02",
