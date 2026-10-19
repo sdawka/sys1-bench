@@ -36,11 +36,11 @@ For the published report preview, run `VITE_REPORT_ONLY=1 npm run dev`. The repo
 
 Each result records the predicted label, the probability per label, the confidence, and p(expected). The confidence for `noul` is max(p, 1-p). It also records the Brier contribution (1 - p(expected))², input tokens, latency and cost. For `score`, p(expected) sums the levels that would count as correct.
 
-### Models (live list and full run, 2026-10-19)
+### Models (live list and full run, 2026-10-19 19:45 UTC)
 
 27 listings collapse to 22 distinct models. `~perplexity/pplx-decider-latest`, `~perplexity/pplx-decider-flash-latest` and `~typesafe/jev-latest` are aliases, and `inception/mercury-decide:free` and `respan/span-01-lite:free` duplicate their paid or lite listings. Perplexity v1.1 is no longer listed and was replaced by v1.2.
 
-Every model was run fresh on 2026-10-19 with seed 42, three samples per templated case, and 337 result rows each, for 7,414 results at a total cost of $0.138. Before this run, `clarity_score/cs_06` (the vague option is now scored 2 rather than 1, per the rubric) and `erp_transaction_validation/erp_01` (a stray, misleading tax-code note was removed) were corrected; the other cases flagged as candidate dataset errors were reviewed and kept. Errors and skipped cases count as incorrect in overall accuracy.
+Every model was run fresh on 2026-10-19, 19:45–19:47 UTC, with seed 42, three samples per templated case, and 337 result rows each, for 7,414 results at a total cost of $0.138. Before this run, `clarity_score/cs_06` (the vague option is now scored 2 rather than 1, per the rubric) and `erp_transaction_validation/erp_01` (a stray, misleading tax-code note was removed) were corrected; the other cases flagged as candidate dataset errors were reviewed and kept. Errors and skipped cases count as incorrect in overall accuracy.
 
 | Model | Input $/1M | Context | Accuracy | Brier | Errors (skipped) | Notes |
 |---|---|---|---|---|---|---|

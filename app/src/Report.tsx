@@ -101,8 +101,10 @@ export default function Report() {
       open={catsOpen} setOpen={setCatsOpen} setSelected={(next) => { setCats(next); setFilter(null); }} />
     {mobile && <button className="primary filter-done" onClick={() => setDrawer(false)}>Show results</button>}
   </>;
-  const date = (stamp: number) => new Date(stamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  const firstDate = date(run.createdAt), lastDate = date(run.finishedAt ?? run.createdAt);
+  const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    .formatRange(run.createdAt, run.finishedAt ?? run.createdAt);
+  const zone = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' })
+    .formatToParts(run.createdAt).find((p) => p.type === 'timeZoneName')?.value;
 
   return (
     <div className="app report-app">
@@ -128,7 +130,7 @@ export default function Report() {
               <div><p className="report-eyebrow">SYSTEM ONE BENCHMARK</p><h1 id="report-title">Small decisions. Measured.</h1><p className="muted">Compare accuracy, calibration, cost, and speed across decision models.</p></div>
               {mobile && <button ref={filterButton} className="filter-trigger" onClick={() => setDrawer(true)} aria-haspopup="dialog">Filters <span>{models.size}/{allModels.length}</span></button>}
             </div>
-            <div className="report-meta"><span>{models.size} models</span><span>{cats.size} categories</span><span>{filtered.results.length.toLocaleString()} results</span><span>{fmtUsd(runCost(filtered))} measured cost</span><span>Benchmarked {firstDate === lastDate ? firstDate : `${firstDate} – ${lastDate}`} · seed {run.config.seed}</span></div>
+            <div className="report-meta"><span>{models.size} models</span><span>{cats.size} categories</span><span>{filtered.results.length.toLocaleString()} results</span><span>{fmtUsd(runCost(filtered))} measured cost</span><span>Benchmarked {when}{zone ? ` ${zone}` : ''} · seed {run.config.seed}</span></div>
             {filtered.results.length ? <>
               <Charts results={filtered.results} colors={colors} />
               <details className="report-details">
